@@ -1,9 +1,23 @@
-﻿namespace ENet.NET;
+﻿using System;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using ENet.NET;
+
+namespace ENet.NET;
 
 public delegate void ENetPacketFreeCallback(object _);
 
 public static class ENet
 {
+    public static void ENET_UNUSED<T>(T x)
+    {
+        //(void)x;
+    }
+
+    // #define ENET_MAX(x, y) ((x) > (y) ? (x) : (y))
+    // #define ENET_MIN(x, y) ((x) < (y) ? (x) : (y))
+    // #define ENET_DIFFERENCE(x, y) ((x) < (y) ? (y) - (x) : (x) - (y))
+
     
     // =======================================================================//
     // !
@@ -123,6 +137,18 @@ public static class ENet
         return ENET_VERSION;
     }
 
+    public static ENetPacket enet_malloc_packet(ulong bufferSize)
+    {
+        // TODO : check ikpil
+        object memory = callbacks.malloc(bufferSize);
+
+        if (memory == null) {
+            callbacks.no_memory();
+        }
+
+        return (ENetPacket)memory;
+    }
+
     public static T enet_malloc<T>(ulong size) 
     {
         object memory = callbacks.malloc(size);
@@ -211,9 +237,9 @@ public static class ENet
      */
     public static ENetPacket enet_packet_create(byte[] data, ulong dataLength, uint flags) {
         ENetPacket packet;
-        if (flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE)
+        if (0 != (flags & (uint)ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
         {
-            packet = enet_malloc<ENetPacket>(1);
+            packet = enet_malloc_packet(0);
             if (packet == null) {
                 return null;
             }
@@ -221,12 +247,12 @@ public static class ENet
             packet.data = data;
         }
         else {
-            packet = (ENetPacket *)enet_malloc(sizeof (ENetPacket) + dataLength);
+            packet = enet_malloc_packet(dataLength);
             if (packet == null) {
                 return null;
             }
 
-            packet.data = (enet_uint8 *)packet + sizeof(ENetPacket);
+            //packet.data = (enet_uint8 *)packet + sizeof(ENetPacket);
 
             if (data != null) {
                 memcpy(packet.data, data, dataLength);
@@ -252,14 +278,14 @@ public static class ENet
     {
         ENetPacket newPacket = null;
 
-        if (dataLength <= packet.dataLength || (packet.flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
+        if (dataLength <= packet.dataLength || 0 != (packet.flags & (uint)ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
         {
            packet.dataLength = dataLength;
 
            return packet;
         }
 
-        newPacket = (ENetPacket *)enet_malloc(sizeof (ENetPacket) + dataLength);
+        newPacket = enet_malloc_packet(dataLength);
         if (newPacket == null)
           return null;
 
@@ -271,18 +297,19 @@ public static class ENet
         return newPacket;
     }
 
-    public static ENetPacket *enet_packet_create_offset(const void *data, ulong dataLength, ulong dataOffset, uint flags) {
-        ENetPacket *packet;
-        if (flags & ENET_PACKET_FLAG_NO_ALLOCATE) {
-            packet = (ENetPacket *)enet_malloc(sizeof (ENetPacket));
+    public static ENetPacket enet_packet_create_offset(byte[] data, ulong dataLength, ulong dataOffset, uint flags) {
+        ENetPacket packet;
+        if (0 != (flags & (uint)ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE)) 
+        {
+            packet = enet_malloc_packet(0);
             if (packet == null) {
                 return null;
             }
 
-            packet.data = (enet_uint8 *)data;
+            packet.data = data;
         }
         else {
-            packet = (ENetPacket *)enet_malloc(sizeof (ENetPacket) + dataLength + dataOffset);
+            packet = enet_malloc_packet( dataLength + dataOffset);
             if (packet == null) {
                 return null;
             }
@@ -303,7 +330,7 @@ public static class ENet
         return packet;
     }
 
-    public static ENetPacket *enet_packet_copy(ENetPacket *packet) {
+    public static ENetPacket enet_packet_copy(ENetPacket packet) {
         return enet_packet_create(packet.data, packet.dataLength, packet.flags);
     }
 
@@ -311,67 +338,75 @@ public static class ENet
      * Destroys the packet and deallocates its data.
      * @param packet packet to be destroyed
      */
-    public static void enet_packet_destroy(ENetPacket *packet) {
+    public static void enet_packet_destroy(ENetPacket packet) {
         if (packet == null) {
             return;
         }
 
         if (packet.freeCallback != null) {
-            (*packet.freeCallback)((void *)packet);
+            packet.freeCallback(packet);
         }
 
         enet_free(packet);
     }
 
-    public static int initializedCRC32 = 0;
-    static uint crcTable[256];
+    private static int initializedCRC32 = 0;
+    private static uint[] crcTable = new uint[256];
 
-    public static static uint reflect_crc(int val, int bits) {
+    public static uint reflect_crc(int val, int bits) {
         int result = 0, bit;
 
         for (bit = 0; bit < bits; bit++) {
-            if (val & 1) { result |= 1 << (bits - 1 - bit); }
+            if (0 != (val & 1))
+            {
+                result |= 1 << (bits - 1 - bit);
+            }
             val >>= 1;
         }
 
-        return result;
+        return (uint)result;
     }
 
-    public static  void initialize_crc32(void) {
-        int byte;
+    private static  void initialize_crc32() {
+        int @byte;
 
-        for (byte = 0; byte < 256; ++byte) {
-            uint crc = reflect_crc(byte, 8) << 24;
+        for (@byte = 0; @byte < 256; ++@byte) {
+            uint crc = reflect_crc(@byte, 8) << 24;
             int offset;
 
             for (offset = 0; offset < 8; ++offset) {
-                if (crc & 0x80000000) {
+                if (0 != (crc & 0x80000000)) {
                     crc = (crc << 1) ^ 0x04c11db7;
                 } else {
                     crc <<= 1;
                 }
             }
 
-            crcTable[byte] = reflect_crc(crc, 32);
+            crcTable[@byte] = reflect_crc((int)crc, 32);
         }
 
         initializedCRC32 = 1;
     }
 
-    public static uint enet_crc32(const ENetBuffer *buffers, ulong bufferCount) {
+    public static uint enet_crc32(Span<ENetBuffer> buffers, ulong bufferCount) {
         uint crc = 0xFFFFFFFF;
 
-        if (!initializedCRC32) { initialize_crc32(); }
+        if (0 == initializedCRC32)
+        {
+            initialize_crc32();
+        }
+
+        int n = 0;
 
         while (bufferCount-- > 0) {
-            const enet_uint8 *data = (const enet_uint8 *)buffers.data;
-            const enet_uint8 *dataEnd = &data[buffers.dataLength];
+            byte[] data = buffers[n].data;
+            byte[] dataEnd = data[buffers[n].dataLength];
 
             while (data < dataEnd) {
                 crc = (crc >> 8) ^ crcTable[(crc & 0xFF) ^ *data++];
             }
 
-            ++buffers;
+            ++n;
         }
 
         return ENET_HOST_TO_NET_32(~crc);
@@ -383,30 +418,32 @@ public static class ENet
 // !
 // =======================================================================//
 
-    public static  ulong commandSizes[ENET_PROTOCOL_COMMAND_COUNT] = {
-        0,
-        sizeof(ENetProtocolAcknowledge),
-        sizeof(ENetProtocolConnect),
-        sizeof(ENetProtocolVerifyConnect),
-        sizeof(ENetProtocolDisconnect),
-        sizeof(ENetProtocolPing),
-        sizeof(ENetProtocolSendReliable),
-        sizeof(ENetProtocolSendUnreliable),
-        sizeof(ENetProtocolSendFragment),
-        sizeof(ENetProtocolSendUnsequenced),
-        sizeof(ENetProtocolBandwidthLimit),
-        sizeof(ENetProtocolThrottleConfigure),
-        sizeof(ENetProtocolSendFragment)
+    public static ulong[] commandSizes = new ulong[(int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_COUNT]
+    {
+        (ulong)0,
+        (ulong)Marshal.SizeOf<ENetProtocolAcknowledge>(),
+        (ulong)Marshal.SizeOf<ENetProtocolConnect>(),
+        (ulong)Marshal.SizeOf<ENetProtocolVerifyConnect>(),
+        (ulong)Marshal.SizeOf<ENetProtocolDisconnect>(),
+        (ulong)Marshal.SizeOf<ENetProtocolPing>(),
+        (ulong)Marshal.SizeOf<ENetProtocolSendReliable>(),
+        (ulong)Marshal.SizeOf<ENetProtocolSendUnreliable>(),
+        (ulong)Marshal.SizeOf<ENetProtocolSendFragment>(),
+        (ulong)Marshal.SizeOf<ENetProtocolSendUnsequenced>(),
+        (ulong)Marshal.SizeOf<ENetProtocolBandwidthLimit>(),
+        (ulong)Marshal.SizeOf<ENetProtocolThrottleConfigure>(),
+        (ulong)Marshal.SizeOf<ENetProtocolSendFragment>(),
     };
 
-    public static ulong enet_protocol_command_size(enet_uint8 commandNumber) {
-        return commandSizes[commandNumber & ENET_PROTOCOL_COMMAND_MASK];
+    public static ulong enet_protocol_command_size(byte commandNumber) {
+        return commandSizes[commandNumber & (uint)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK];
     }
 
-    public static void enet_protocol_change_state(ENetHost *host, ENetPeer *peer, ENetPeerState state) {
-        ENET_UNUSED(host)
+    public static void enet_protocol_change_state(ENetHost host, ENetPeer peer, ENetPeerState state)
+    {
+        ENET_UNUSED(host);
 
-        if (state == ENET_PEER_STATE_CONNECTED || state == ENET_PEER_STATE_DISCONNECT_LATER) {
+        if (state == ENetPeerState.ENET_PEER_STATE_CONNECTED || state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
             enet_peer_on_connect(peer);
         } else {
             enet_peer_on_disconnect(peer);
@@ -415,17 +452,17 @@ public static class ENet
         peer.state = state;
     }
 
-    public static void enet_protocol_dispatch_state(ENetHost *host, ENetPeer *peer, ENetPeerState state) {
+    public static void enet_protocol_dispatch_state(ENetHost host, ENetPeer peer, ENetPeerState state) {
         enet_protocol_change_state(host, peer, state);
 
-        if (!(peer.flags &ENET_PEER_FLAG_NEEDS_DISPATCH)) {
-            enet_list_insert(enet_list_end(&host.dispatchQueue), &peer.dispatchList);
-            peer.flags |= ENET_PEER_FLAG_NEEDS_DISPATCH;
+        if (0 == (peer.flags & (uint)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
+            enet_list_insert(enet_list_end(host.dispatchQueue), peer.dispatchList);
+            peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
         }
     }
 
-    public static int enet_protocol_dispatch_incoming_commands(ENetHost *host, ENetEvent *event) {
-        while (!enet_list_empty(&host.dispatchQueue)) {
+    public static int enet_protocol_dispatch_incoming_commands(ENetHost host, ENetEvent @event) {
+        while (!enet_list_empty(host.dispatchQueue)) {
             ENetPeer *peer = (ENetPeer *) enet_list_remove(enet_list_begin(&host.dispatchQueue));
             peer.flags &= ~ ENET_PEER_FLAG_NEEDS_DISPATCH;
 
@@ -2694,7 +2731,7 @@ public static void enet_peer_reset_queues(ENetPeer *peer) {
         peer.channelCount = 0;
     }
 
-public static void enet_peer_on_connect(ENetPeer *peer) {
+    public static void enet_peer_on_connect(ENetPeer peer) {
         if (peer.state != ENET_PEER_STATE_CONNECTED && peer.state != ENET_PEER_STATE_DISCONNECT_LATER) {
             if (peer.incomingBandwidth != 0) {
                 ++peer.host.bandwidthLimitedPeers;
@@ -2704,7 +2741,7 @@ public static void enet_peer_on_connect(ENetPeer *peer) {
         }
     }
 
-public static void enet_peer_on_disconnect(ENetPeer *peer) {
+    public static void enet_peer_on_disconnect(ENetPeer peer) {
         if (peer.state == ENET_PEER_STATE_CONNECTED || peer.state == ENET_PEER_STATE_DISCONNECT_LATER) {
             if (peer.incomingBandwidth != 0) {
                 --peer.host.bandwidthLimitedPeers;
@@ -4030,7 +4067,7 @@ public static void enet_host_destroy(ENetHost *host) {
                     return 0;
 
                 } else if (result.ai_family == AF_INET6 || (result.ai_family == AF_UNSPEC && result.ai_addrlen == sizeof(struct sockaddr_in6))) {
-                    memcpy(&out.host, &((struct sockaddr_in6*)result.ai_addr).sin6_addr, sizeof(struct in6_addr));
+                    memcpy(&out.host, &((struct sockaddr_in6*)result.ai_addr).sin6_addr, sizeof(struct ENetAddress.in6_addr));
                     out.sin6_scope_id = (enet_uint16) ((struct sockaddr_in6*)result.ai_addr).sin6_scope_id;
                     freeaddrinfo(resultList);
                     return 0;

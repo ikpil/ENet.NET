@@ -172,11 +172,6 @@
     #define ENET_NET_TO_HOST_16(value) (ntohs(value)) /* macro that converts net to host byte-order of a 16-bit value */
     #define ENET_NET_TO_HOST_32(value) (ntohl(value)) /* macro that converts net to host byte-order of a 32-bit value */
 
-    typedef struct {
-        void * data;
-        ulong dataLength;
-    } ENetBuffer;
-
     #define ENET_CALLBACK
     #define ENET_API extern
 
@@ -201,11 +196,6 @@
 #define ENET_BUFFER_MAXIMUM (1 + 2 * ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS)
 #endif
 
-#define ENET_UNUSED(x) (void)x;
-
-#define ENET_MAX(x, y) ((x) > (y) ? (x) : (y))
-#define ENET_MIN(x, y) ((x) < (y) ? (x) : (y))
-#define ENET_DIFFERENCE(x, y) ((x) < (y) ? (y) - (x) : (x) - (y))
 
 #define ENET_IPV6           1
 static const struct in6_addr enet_v4_anyaddr   = {{{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 }}};
