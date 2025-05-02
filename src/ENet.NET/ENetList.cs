@@ -1,6 +1,6 @@
 ﻿namespace ENet.NET;
 
-public class ENetList
+public class ENetList<T>
 {
-    public ENetListNode sentinel;
+    public ENetListNode<T> sentinel;
 }

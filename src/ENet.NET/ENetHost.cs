@@ -25,11 +25,11 @@ public class ENetHost
     public uint mtu;
     public uint randomSeed;
     public int recalculateBandwidthLimits;
-    public ENetPeer* peers; /* array of peers allocated for this host */
+    public ENetPeer[] peers; /* array of peers allocated for this host */
     public ulong peerCount; /* number of peers allocated for this host */
     public ulong channelLimit; /* maximum number of channels allowed for connected peers */
     public uint serviceTime;
-    public ENetList dispatchQueue;
+    public ENetList<ENetPeer> dispatchQueue;
     public uint totalQueued;
     public ulong packetSize;
     public ushort headerFlags;

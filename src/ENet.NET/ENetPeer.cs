@@ -7,7 +7,7 @@
  */
 public class ENetPeer
 {
-    public ENetListNode dispatchList;
+    public ENetListNode<ENetPeer> dispatchList;
 
     public ENetHost host;
     public ushort outgoingPeerID;
@@ -19,7 +19,7 @@ public class ENetPeer
     public void* data; /* Application private data, may be freely modified */
     public ENetPeerState state;
 
-    public ENetChannel* channels;
+    public ENetChannel[] channels;
     public ulong channelCount; /* Number of channels allocated for communication with peer */
     public uint incomingBandwidth; /* Downstream bandwidth of the client in bytes/second */
     public uint outgoingBandwidth; /* Upstream bandwidth of the client in bytes/second */
@@ -63,15 +63,15 @@ public class ENetPeer
     public uint reliableDataInTransit;
     public ushort outgoingReliableSequenceNumber;
     public ENetList acknowledgements;
-    public ENetList sentReliableCommands;
-    public ENetList outgoingCommands;
-    public ENetList outgoingSendReliableCommands;
-    public ENetList dispatchedCommands;
+    public ENetList<ENetOutgoingCommand> sentReliableCommands;
+    public ENetList<ENetOutgoingCommand> outgoingCommands;
+    public ENetList<ENetOutgoingCommand> outgoingSendReliableCommands;
+    public ENetList<ENetIncomingCommand> dispatchedCommands;
     public ushort flags;
     public ushort reserved;
     public ushort incomingUnsequencedGroup;
     public ushort outgoingUnsequencedGroup;
-    public uint unsequencedWindow[ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
+    public uint[] unsequencedWindow = new uint[ENetPeerConst.ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
     public uint eventData;
     public ulong totalWaitingData;
 }

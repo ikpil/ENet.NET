@@ -8,6 +8,6 @@ public class ENetChannel
     public ushort reliableWindows[ENET_PEER_RELIABLE_WINDOWS];
     public ushort incomingReliableSequenceNumber;
     public ushort incomingUnreliableSequenceNumber;
-    public ENetList    incomingReliableCommands;
-    public ENetList    incomingUnreliableCommands;
+    public ENetList<ENetIncomingCommand> incomingReliableCommands;
+    public ENetList<ENetIncomingCommand> incomingUnreliableCommands;
 }

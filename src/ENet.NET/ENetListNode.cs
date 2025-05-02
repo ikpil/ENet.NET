@@ -1,7 +1,8 @@
 ﻿namespace ENet.NET;
 
-public class ENetListNode
+public class ENetListNode<T>
 {
-    public ENetListNode next;
-    public ENetListNode previous;
+    public T value;
+    public ENetListNode<T> next;
+    public ENetListNode<T> previous;
 }
