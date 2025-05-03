@@ -20,10 +20,10 @@ public class ENetPeer
     public ENetPeerState state;
 
     public ENetChannel[] channels;
-    public int channelCount; /* Number of channels allocated for communication with peer */
-    public uint incomingBandwidth; /* Downstream bandwidth of the client in bytes/second */
-    public uint outgoingBandwidth; /* Upstream bandwidth of the client in bytes/second */
-    public uint incomingBandwidthThrottleEpoch;
+    public long channelCount; /* Number of channels allocated for communication with peer */
+    public long incomingBandwidth; /* Downstream bandwidth of the client in bytes/second */
+    public long outgoingBandwidth; /* Upstream bandwidth of the client in bytes/second */
+    public long incomingBandwidthThrottleEpoch;
 
     public uint outgoingBandwidthThrottleEpoch;
     public uint incomingDataTotal;
@@ -58,8 +58,8 @@ public class ENetPeer
     public uint highestRoundTripTimeVariance;
     public uint roundTripTime; /* mean round trip time (RTT), in milliseconds, between sending a reliable packet and receiving its acknowledgement */
     public uint roundTripTimeVariance;
-    public uint mtu;
-    public uint windowSize;
+    public long mtu;
+    public long windowSize;
     public uint reliableDataInTransit;
     public ushort outgoingReliableSequenceNumber;
     public ENetList<ENetAcknowledgement> acknowledgements;
