@@ -33,13 +33,13 @@ public class ENetHost
     public uint totalQueued;
     public ulong packetSize;
     public ushort headerFlags;
-    public ENetProtocol commands[ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
+    public ENetProtocol commands[ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
     public ulong commandCount;
     public ENetBuffer buffers[ENET_BUFFER_MAXIMUM];
     public ulong bufferCount;
     public ENetChecksumCallback checksum; /* callback the user can set to enable packet checksums for this host */
     public ENetCompressor compressor;
-    public byte packetData[2][ENET_PROTOCOL_MAXIMUM_MTU];
+    public byte packetData[2][ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_MTU];
     public ENetAddress receivedAddress;
     public byte* receivedData;
     public ulong receivedDataLength;

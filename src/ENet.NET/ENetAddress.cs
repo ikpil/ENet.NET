@@ -12,7 +12,7 @@
  */
 public struct ENetAddress
 {
-    public struct in6_addr host;
+    public in6_addr host;
     public ushort port;
     public ushort sin6_scope_id;
 }

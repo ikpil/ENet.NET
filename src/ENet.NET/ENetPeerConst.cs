@@ -20,6 +20,6 @@ public class ENetPeerConst
     public const int ENET_PEER_UNSEQUENCED_WINDOW_SIZE = 1024;
     public const int ENET_PEER_FREE_UNSEQUENCED_WINDOWS = 32;
     public const int ENET_PEER_RELIABLE_WINDOWS = 16;
-    public const int ENET_PEER_RELIABLE_WINDOW_SIZE = 0x1000;
+    public const ushort ENET_PEER_RELIABLE_WINDOW_SIZE = 0x1000;
     public const int ENET_PEER_FREE_RELIABLE_WINDOWS = 8;
 }

@@ -1,6 +1,6 @@
 ﻿namespace ENet.NET;
 
-public struct ENetOutgoingCommand
+public class ENetOutgoingCommand
 {
     public ENetListNode outgoingCommandList;
     public ushort reliableSequenceNumber;
