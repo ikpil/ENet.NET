@@ -2,7 +2,7 @@
 
 namespace ENet.NET;
 
-public struct ENetAcknowledgement
+public class ENetAcknowledgement
 {
     public ENetListNode acknowledgementList;
     public uint sentTime;

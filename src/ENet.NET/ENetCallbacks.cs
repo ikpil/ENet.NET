@@ -7,7 +7,7 @@ public class ENetCallbacks
 {
     public Func<object, ulong> ma;
 
-    public delegate object MallocDelegate(ulong size);
+    public delegate object MallocDelegate(int size);
     public delegate void FreeDelegate(object size);
     public delegate void NoMemoryDelegate();
     public delegate ENetPacket PacketCreateDelegate(object data, ulong dataLength, uint flags);

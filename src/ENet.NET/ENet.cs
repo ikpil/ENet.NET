@@ -1,14 +1,85 @@
-﻿using System;
+﻿#define WIN32
+
+using System;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
-using ENet.NET;
 
 namespace ENet.NET;
 
 public delegate void ENetPacketFreeCallback(object _);
 
+/** Callback that computes the checksum of the data held in buffers[0:bufferCount-1] */
+public delegate uint ENetChecksumCallback(ref ENetBuffer buffers, ulong bufferCount);
+
+/** Callback for intercepting received raw UDP packets. Should return 1 to intercept, 0 to ignore, or -1 to propagate an error. */
+public delegate int ENetInterceptCallback(ENetHost host, object @event);
+
+
 public static class ENet
 {
+    public static void perror(string message)
+    {
+        Console.Error.WriteLine(message);
+    }
+    
+    public const int CLOCK_MONOTONIC = 0;
+    public const int ENET_TIME_OVERFLOW = 86400000;
+    public static bool ENET_TIME_LESS(uint a, uint b) 
+    {
+        return ((a) - (b) >= ENET_TIME_OVERFLOW);
+    }
+    public static bool ENET_TIME_GREATER(int a, int b) 
+    {
+        return ((b) - (a) >= ENET_TIME_OVERFLOW);
+    }
+    public static int ENET_TIME_LESS_EQUAL(int a, int b) 
+    {
+        return (! ENET_TIME_GREATER (a, b));
+    }
+    public static int ENET_TIME_GREATER_EQUAL(int a, int b) 
+    {
+        return (! ENET_TIME_LESS (a, b));
+    }
+    public static uint ENET_TIME_DIFFERENCE(uint a, uint b) 
+    {
+        return ((a) - (b) >= ENET_TIME_OVERFLOW ? (b) - (a) : (a) - (b));
+    }
+
+    public static ushort ENET_HOST_TO_NET_16(ushort value)
+    {
+        return (htons(value)); /* macro that converts host to net byte-order of a 16-bit value */
+    }
+    public static uint ENET_HOST_TO_NET_32(uint value)
+    {
+        return (htonl(value)); /* macro that converts host to net byte-order of a 32-bit value */
+    }
+    public static ushort ENET_NET_TO_HOST_16(int value)
+    {
+        return (ntohs(value)); /* macro that converts net to host byte-order of a 16-bit value */
+    }
+    public static uint ENET_NET_TO_HOST_32(uint value)
+    {
+        return (ntohl(value)); /* macro that converts net to host byte-order of a 32-bit value */
+    }
+
+    public static int ENET_SOCKETSET_EMPTY(int sockset)
+    {
+        return FD_ZERO(&(sockset));
+    }
+
+    public static int ENET_SOCKETSET_ADD(int sockset, int socket)   
+    {
+        return FD_SET(socket, &(sockset));
+    }
+    public static int ENET_SOCKETSET_REMOVE(int sockset, int socket)
+    {
+        return FD_CLR(socket, &(sockset));
+    }
+    public static int ENET_SOCKETSET_CHECK(int sockset, int socket) 
+    {
+        return FD_ISSET(socket, &(sockset));
+    }
+
     public static void ENET_UNUSED<T>(T x)
     {
         //(void)x;
@@ -22,19 +93,19 @@ public static class ENet
     // ! Public API
     // !
     // =======================================================================//
-    public static ENetListNode<T> enet_list_begin<T>(ENetList<T> list)
+    public static ENetListNode<T> enet_list_begin<T>(ref ENetList<T> list)
     {
         return list.sentinel.next;
     }
     
-    public static ENetListNode<T> enet_list_end<T>(ENetList<T> list)
+    public static ENetListNode<T> enet_list_end<T>(ref ENetList<T> list)
     {
         return list.sentinel;
     }
     
-    public static bool enet_list_empty<T>(ENetList<T> list)
+    public static bool enet_list_empty<T>(ref ENetList<T> list)
     {
-        return enet_list_begin(list) == enet_list_end(list);
+        return enet_list_begin(ref list) == enet_list_end(ref list);
     }
     
     public static ENetListNode<T> enet_list_next<T>(ENetListNode<T> iterator)
@@ -47,12 +118,12 @@ public static class ENet
         return iterator.previous;
     }
     
-    public static ref T enet_list_front<T>(ENetList<T> list)
+    public static ref T enet_list_front<T>(ref ENetList<T> list)
     {
         return ref list.sentinel.next.value;
     }
     
-    public static ref T enet_list_back<T>(ENetList<T> list)
+    public static ref T enet_list_back<T>(ref ENetList<T> list)
     {
         return ref list.sentinel.previous.value;
     }
@@ -147,7 +218,11 @@ public static class ENet
         return (ENetPacket)memory;
     }
 
-    public static T[] enet_malloc<T>(ulong size) 
+    public static T enet_malloc<T>()
+    {
+        return enet_malloc<T>(1)[0];
+    }
+    public static T[] enet_malloc<T>(int size) 
     {
         object memory = callbacks.malloc(size);
 
@@ -169,7 +244,7 @@ public static class ENet
     // !
     // =======================================================================//
 
-    public static void enet_list_clear<T>(ENetList<T> list) {
+    public static void enet_list_clear<T>(ref ENetList<T> list) {
         list.sentinel.next     = list.sentinel;
         list.sentinel.previous = list.sentinel;
     }
@@ -209,11 +284,12 @@ public static class ENet
         return first;
     }
 
-    public static ulong enet_list_size<T>(ENetList<T> list) {
-        ulong size = 0;
+    public static int enet_list_size<T>(ref ENetList<T> list) 
+    {
+        int size = 0;
         ENetListNode<T> position;
 
-        for (position = enet_list_begin(list); position != enet_list_end(list); position = enet_list_next(position)) {
+        for (position = enet_list_begin(ref list); position != enet_list_end(ref list); position = enet_list_next(position)) {
             ++size;
         }
 
@@ -454,14 +530,14 @@ public static class ENet
         enet_protocol_change_state(host, peer, state);
 
         if (0 == (peer.flags & (uint)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
-            enet_list_insert(enet_list_end(host.dispatchQueue), peer.dispatchList);
+            enet_list_insert(enet_list_end(ref host.dispatchQueue), peer.dispatchList);
             peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
         }
     }
 
     public static int enet_protocol_dispatch_incoming_commands(ENetHost host, ENetEvent @event) {
-        while (!enet_list_empty(host.dispatchQueue)) {
-            ENetPeer peer = enet_list_remove(enet_list_begin(host.dispatchQueue));
+        while (!enet_list_empty(ref host.dispatchQueue)) {
+            ENetPeer peer = enet_list_remove(enet_list_begin(ref host.dispatchQueue));
             peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
 
             switch (peer.state) {
@@ -487,7 +563,7 @@ public static class ENet
                     return 1;
 
                 case ENetPeerState.ENET_PEER_STATE_CONNECTED:
-                    if (enet_list_empty(peer.dispatchedCommands)) {
+                    if (enet_list_empty(ref peer.dispatchedCommands)) {
                         continue;
                     }
 
@@ -499,9 +575,9 @@ public static class ENet
                     @event.type = ENetEventType.ENET_EVENT_TYPE_RECEIVE;
                     @event.peer = peer;
 
-                    if (!enet_list_empty(peer.dispatchedCommands)) {
+                    if (!enet_list_empty(ref peer.dispatchedCommands)) {
                         peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
-                        enet_list_insert(enet_list_end(host.dispatchQueue), peer.dispatchList);
+                        enet_list_insert(enet_list_end(ref host.dispatchQueue), peer.dispatchList);
                     }
 
                     return 1;
@@ -594,7 +670,7 @@ public static class ENet
             }
 
             enet_free(outgoingCommand);
-        } while (!enet_list_empty(sentUnreliableCommands));
+        } while (!enet_list_empty(ref sentUnreliableCommands));
 
         if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER && !enet_peer_has_outgoing_commands(peer)) {
             enet_peer_disconnect(peer, peer.eventData);
@@ -604,8 +680,8 @@ public static class ENet
     public static ENetOutgoingCommand enet_protocol_find_sent_reliable_command (ENetList<ENetOutgoingCommand> list, ushort reliableSequenceNumber, byte channelID) {
         ENetListNode<ENetOutgoingCommand> currentCommand;
 
-        for (currentCommand = enet_list_begin(list);
-            currentCommand != enet_list_end(list);
+        for (currentCommand = enet_list_begin(ref list);
+            currentCommand != enet_list_end(ref list);
             currentCommand = enet_list_next(currentCommand))
         {
             ENetOutgoingCommand outgoingCommand = currentCommand.value;
@@ -632,8 +708,8 @@ public static class ENet
         ENetProtocolCommand commandNumber;
         int wasSent = 1;
 
-        for (currentCommand = enet_list_begin(peer.sentReliableCommands);
-            currentCommand != enet_list_end(peer.sentReliableCommands);
+        for (currentCommand = enet_list_begin(ref peer.sentReliableCommands);
+            currentCommand != enet_list_end(ref peer.sentReliableCommands);
             currentCommand = enet_list_next(currentCommand))
         {
 
@@ -643,7 +719,7 @@ public static class ENet
             }
         }
 
-        if (currentCommand == enet_list_end(peer.sentReliableCommands)) {
+        if (currentCommand == enet_list_end(ref peer.sentReliableCommands)) {
             outgoingCommand = enet_protocol_find_sent_reliable_command(peer.outgoingCommands, reliableSequenceNumber, channelID);
             if (outgoingCommand == null) {
                 outgoingCommand = enet_protocol_find_sent_reliable_command(peer.outgoingSendReliableCommands, reliableSequenceNumber, channelID);
@@ -659,7 +735,7 @@ public static class ENet
         if (channelID < peer.channelCount) 
         {
             ENetChannel channel       = peer.channels[channelID];
-            ushort reliableWindow = (ushort)(reliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE);
+            ushort reliableWindow = (ushort)(reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
             if (channel.reliableWindows[reliableWindow] > 0) 
             {
                 --channel.reliableWindows[reliableWindow];
@@ -688,7 +764,7 @@ public static class ENet
 
         enet_free(outgoingCommand);
 
-        if (enet_list_empty(peer.sentReliableCommands)) {
+        if (enet_list_empty(ref peer.sentReliableCommands)) {
             return commandNumber;
         }
 
@@ -705,13 +781,13 @@ public static class ENet
         byte incomingSessionID, outgoingSessionID;
         uint mtu, windowSize;
         ENetChannel channel = null;
-        ulong channelCount, duplicatePeers = 0;
+        uint channelCount, duplicatePeers = 0;
         ENetPeer currentPeer, peer = null;
-        ENetProtocol verifyCommand;
+        ENetProtocol verifyCommand = new ENetProtocol();
 
         channelCount = ENET_NET_TO_HOST_32(command.connect.channelCount);
 
-        if (channelCount < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
+        if (channelCount < ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
             return null;
         }
 
@@ -778,8 +854,8 @@ public static class ENet
             channel.incomingReliableSequenceNumber   = 0;
             channel.incomingUnreliableSequenceNumber = 0;
 
-            enet_list_clear(&channel.incomingReliableCommands);
-            enet_list_clear(&channel.incomingUnreliableCommands);
+            enet_list_clear(ref channel.incomingReliableCommands);
+            enet_list_clear(ref channel.incomingUnreliableCommands);
 
             channel.usedReliableWindows = 0;
             memset(channel.reliableWindows, 0, sizeof(channel.reliableWindows));
@@ -787,43 +863,43 @@ public static class ENet
 
         mtu = ENET_NET_TO_HOST_32(command.connect.mtu);
 
-        if (mtu < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_MTU) {
-            mtu = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_MTU;
-        } else if (mtu > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_MTU) {
-            mtu = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_MTU;
+        if (mtu < ENets.ENET_PROTOCOL_MINIMUM_MTU) {
+            mtu = ENets.ENET_PROTOCOL_MINIMUM_MTU;
+        } else if (mtu > ENets.ENET_PROTOCOL_MAXIMUM_MTU) {
+            mtu = ENets.ENET_PROTOCOL_MAXIMUM_MTU;
         }
 
         if (mtu < peer.mtu)
             peer.mtu = mtu;
 
         if (host.outgoingBandwidth == 0 && peer.incomingBandwidth == 0) {
-            peer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         } else if (host.outgoingBandwidth == 0 || peer.incomingBandwidth == 0) {
-            peer.windowSize = (Math.Max(host.outgoingBandwidth, peer.incomingBandwidth) / ENetPeerConst.ENET_PEER_WINDOW_SIZE_SCALE) * ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            peer.windowSize = (Math.Max(host.outgoingBandwidth, peer.incomingBandwidth) / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
         } else {
-            peer.windowSize = (Math.Min(host.outgoingBandwidth, peer.incomingBandwidth) / ENetPeerConst.ENET_PEER_WINDOW_SIZE_SCALE) * ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            peer.windowSize = (Math.Min(host.outgoingBandwidth, peer.incomingBandwidth) / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
         }
 
-        if (peer.windowSize < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-            peer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
-        } else if (peer.windowSize > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-            peer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+        if (peer.windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+            peer.windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+        } else if (peer.windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+            peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         }
 
         if (host.incomingBandwidth == 0) {
-            windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         } else {
-            windowSize = (host.incomingBandwidth / ENetPeerConst.ENET_PEER_WINDOW_SIZE_SCALE) * ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            windowSize = (host.incomingBandwidth / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
         }
 
         if (windowSize > ENET_NET_TO_HOST_32(command.connect.windowSize)) {
             windowSize = ENET_NET_TO_HOST_32(command.connect.windowSize);
         }
 
-        if (windowSize < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-            windowSize = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
-        } else if (windowSize > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-            windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+        if (windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+            windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+        } else if (windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+            windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         }
 
         verifyCommand.header.command                            = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_VERIFY_CONNECT | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
@@ -841,11 +917,11 @@ public static class ENet
         verifyCommand.verifyConnect.packetThrottleDeceleration  = ENET_HOST_TO_NET_32(peer.packetThrottleDeceleration);
         verifyCommand.verifyConnect.connectID                   = peer.connectID;
 
-        enet_peer_queue_outgoing_command(peer, &verifyCommand, null, 0, 0);
+        enet_peer_queue_outgoing_command(peer, ref verifyCommand, null, 0, 0);
         return peer;
     } /* enet_protocol_handle_connect */
 
-    public static int enet_protocol_handle_send_reliable(ENetHost *host, ENetPeer *peer, const ENetProtocol *command, byte **currentData) {
+    public static int enet_protocol_handle_send_reliable(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
         ulong dataLength;
 
         if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER)) {
@@ -866,7 +942,7 @@ public static class ENet
         return 0;
     }
 
-    public static int enet_protocol_handle_send_unsequenced(ENetHost *host, ENetPeer *peer, const ENetProtocol *command, byte **currentData) {
+    public static int enet_protocol_handle_send_unsequenced(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
         uint unsequencedGroup, index;
         ulong dataLength;
 
@@ -881,13 +957,13 @@ public static class ENet
         }
 
         unsequencedGroup = ENET_NET_TO_HOST_16(command.sendUnsequenced.unsequencedGroup);
-        index = unsequencedGroup % ENetPeerConst.ENET_PEER_UNSEQUENCED_WINDOW_SIZE;
+        index = unsequencedGroup % ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE;
 
         if (unsequencedGroup < peer.incomingUnsequencedGroup) {
             unsequencedGroup += 0x10000;
         }
 
-        if (unsequencedGroup >= (uint) peer.incomingUnsequencedGroup + ENetPeerConst.ENET_PEER_FREE_UNSEQUENCED_WINDOWS * ENetPeerConst.ENET_PEER_UNSEQUENCED_WINDOW_SIZE) {
+        if (unsequencedGroup >= (uint) peer.incomingUnsequencedGroup + ENets.ENET_PEER_FREE_UNSEQUENCED_WINDOWS * ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE) {
             return 0;
         }
 
@@ -909,8 +985,7 @@ public static class ENet
         return 0;
     } /* enet_protocol_handle_send_unsequenced */
 
-    public static int enet_protocol_handle_send_unreliable(ENetHost *host, ENetPeer *peer, const ENetProtocol *command,
-      byte **currentData) {
+    public static int enet_protocol_handle_send_unreliable(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
         ulong dataLength;
 
         if (command.header.channelID >= peer.channelCount ||
@@ -932,12 +1007,12 @@ public static class ENet
         return 0;
     }
 
-    public static int enet_protocol_handle_send_fragment(ENetHost *host, ENetPeer *peer, const ENetProtocol *command, byte **currentData) {
+    public static int enet_protocol_handle_send_fragment(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
         uint fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, startSequenceNumber, totalLength;
-        ENetChannel *channel;
+        ENetChannel channel = null;
         ushort startWindow, currentWindow;
-        ENetListNode currentCommand;
-        ENetIncomingCommand *startCommand = null;
+        ENetListNode<ENetIncomingCommand> currentCommand = null;
+        ENetIncomingCommand startCommand = null;
 
         if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER)) {
             return -1;
@@ -955,14 +1030,14 @@ public static class ENet
 
         channel = &peer.channels[command.header.channelID];
         startSequenceNumber = ENET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-        startWindow         = startSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
-        currentWindow       = channel.incomingReliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
+        startWindow         = startSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
+        currentWindow       = channel.incomingReliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
 
         if (startSequenceNumber < channel.incomingReliableSequenceNumber) {
-            startWindow += ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS;
+            startWindow += ENets.ENET_PEER_RELIABLE_WINDOWS;
         }
 
-        if (startWindow < currentWindow || startWindow >= currentWindow + ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
+        if (startWindow < currentWindow || startWindow >= currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
             return 0;
         }
 
@@ -971,7 +1046,7 @@ public static class ENet
         fragmentOffset = ENET_NET_TO_HOST_32(command.sendFragment.fragmentOffset);
         totalLength    = ENET_NET_TO_HOST_32(command.sendFragment.totalLength);
 
-        if (fragmentCount > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
+        if (fragmentCount > ENets.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
             fragmentNumber >= fragmentCount ||
             totalLength > host.maximumPacketSize ||
             totalLength < fragmentCount ||
@@ -981,11 +1056,12 @@ public static class ENet
             return -1;
         }
 
-        for (currentCommand = enet_list_previous(enet_list_end(&channel.incomingReliableCommands));
-            currentCommand != enet_list_end(&channel.incomingReliableCommands);
+        for (currentCommand = enet_list_previous(enet_list_end(ref channel.incomingReliableCommands));
+            currentCommand != enet_list_end(ref channel.incomingReliableCommands);
             currentCommand = enet_list_previous(currentCommand)
-        ) {
-            ENetIncomingCommand *incomingCommand = (ENetIncomingCommand *) currentCommand;
+        )
+        {
+            ENetIncomingCommand incomingCommand = currentCommand.value;
 
             if (startSequenceNumber >= channel.incomingReliableSequenceNumber) {
                 if (incomingCommand.reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
@@ -1040,12 +1116,12 @@ public static class ENet
         return 0;
     } /* enet_protocol_handle_send_fragment */
 
-    public static int enet_protocol_handle_send_unreliable_fragment(ENetHost *host, ENetPeer *peer, const ENetProtocol *command, byte **currentData) {
+    public static int enet_protocol_handle_send_unreliable_fragment(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
         uint fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, reliableSequenceNumber, startSequenceNumber, totalLength;
         ushort reliableWindow, currentWindow;
-        ENetChannel *channel;
-        ENetListNode currentCommand;
-        ENetIncomingCommand *startCommand = null;
+        ENetChannel channel = null;
+        ENetListNode<ENetIncomingCommand> currentCommand;
+        ENetIncomingCommand startCommand = null;
 
         if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER)) {
             return -1;
@@ -1065,14 +1141,14 @@ public static class ENet
         reliableSequenceNumber = command.header.reliableSequenceNumber;
         startSequenceNumber    = ENET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
 
-        reliableWindow = reliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
-        currentWindow  = channel.incomingReliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
+        reliableWindow = reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
+        currentWindow  = channel.incomingReliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
 
         if (reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
-            reliableWindow += ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS;
+            reliableWindow += ENets.ENET_PEER_RELIABLE_WINDOWS;
         }
 
-        if (reliableWindow < currentWindow || reliableWindow >= currentWindow + ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
+        if (reliableWindow < currentWindow || reliableWindow >= currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
             return 0;
         }
 
@@ -1085,7 +1161,7 @@ public static class ENet
         fragmentOffset = ENET_NET_TO_HOST_32(command.sendFragment.fragmentOffset);
         totalLength    = ENET_NET_TO_HOST_32(command.sendFragment.totalLength);
 
-        if (fragmentCount > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
+        if (fragmentCount > ENets.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
             fragmentNumber >= fragmentCount ||
             totalLength > host.maximumPacketSize ||
             totalLength < fragmentCount ||
@@ -1095,11 +1171,12 @@ public static class ENet
             return -1;
         }
 
-        for (currentCommand = enet_list_previous(enet_list_end(&channel.incomingUnreliableCommands));
-            currentCommand != enet_list_end(&channel.incomingUnreliableCommands);
+        for (currentCommand = enet_list_previous(enet_list_end(ref channel.incomingUnreliableCommands));
+            currentCommand != enet_list_end(ref channel.incomingUnreliableCommands);
             currentCommand = enet_list_previous(currentCommand)
-        ) {
-            ENetIncomingCommand *incomingCommand = (ENetIncomingCommand *) currentCommand;
+        )
+        {
+            ENetIncomingCommand incomingCommand = currentCommand.value;
 
             if (reliableSequenceNumber >= channel.incomingReliableSequenceNumber) {
                 if (incomingCommand.reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
@@ -1161,9 +1238,10 @@ public static class ENet
         return 0;
     } /* enet_protocol_handle_send_unreliable_fragment */
 
-    public static int enet_protocol_handle_ping(ENetHost *host, ENetPeer *peer, const ENetProtocol *command) {
-        ENET_UNUSED(host)
-        ENET_UNUSED(command)
+    public static int enet_protocol_handle_ping(ENetHost host, ENetPeer peer, ref ENetProtocol command)
+    {
+        ENET_UNUSED(host);
+        ENET_UNUSED(command);
 
         if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
             return -1;
@@ -1172,7 +1250,7 @@ public static class ENet
         return 0;
     }
 
-    public static int enet_protocol_handle_bandwidth_limit(ENetHost *host, ENetPeer *peer, const ENetProtocol *command) {
+    public static int enet_protocol_handle_bandwidth_limit(ENetHost host, ENetPeer peer, ref ENetProtocol command) {
         if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
             return -1;
         }
@@ -1188,26 +1266,27 @@ public static class ENet
         peer.outgoingBandwidth = ENET_NET_TO_HOST_32(command.bandwidthLimit.outgoingBandwidth);
 
         if (peer.incomingBandwidth == 0 && host.outgoingBandwidth == 0) {
-            peer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         } else if (peer.incomingBandwidth == 0 || host.outgoingBandwidth == 0) {
             peer.windowSize = (Math.Max(peer.incomingBandwidth, host.outgoingBandwidth)
-              / ENetPeerConst.ENET_PEER_WINDOW_SIZE_SCALE) * ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+              / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
         } else {
             peer.windowSize = (Math.Min(peer.incomingBandwidth, host.outgoingBandwidth)
-              / ENetPeerConst.ENET_PEER_WINDOW_SIZE_SCALE) * ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+              / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
         }
 
-        if (peer.windowSize < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-            peer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
-        } else if (peer.windowSize > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-            peer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+        if (peer.windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+            peer.windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+        } else if (peer.windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+            peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         }
 
         return 0;
     } /* enet_protocol_handle_bandwidth_limit */
 
-    public static int enet_protocol_handle_throttle_configure(ENetHost *host, ENetPeer *peer, const ENetProtocol *command) {
-        ENET_UNUSED(host)
+    public static int enet_protocol_handle_throttle_configure(ENetHost host, ENetPeer peer, ref ENetProtocol command)
+    {
+        ENET_UNUSED(host);
 
         if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
             return -1;
@@ -1220,7 +1299,7 @@ public static class ENet
         return 0;
     }
 
-    public static int enet_protocol_handle_disconnect(ENetHost *host, ENetPeer *peer, const ENetProtocol *command) {
+    public static int enet_protocol_handle_disconnect(ENetHost host, ENetPeer peer, ref ENetProtocol command) {
         if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECTED || peer.state == ENetPeerState.ENET_PEER_STATE_ZOMBIE ||
             peer.state == ENetPeerState.ENET_PEER_STATE_ACKNOWLEDGING_DISCONNECT
         ) {
@@ -1233,7 +1312,7 @@ public static class ENet
             enet_protocol_dispatch_state(host, peer, ENetPeerState.ENET_PEER_STATE_ZOMBIE);
         }
         else if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
-            if (peer.state == ENET_PEER_STATE_CONNECTION_PENDING) { host.recalculateBandwidthLimits = 1; }
+            if (peer.state == ENetPeerState.ENET_PEER_STATE_CONNECTION_PENDING) { host.recalculateBandwidthLimits = 1; }
             enet_peer_reset(peer);
         }
         else if (command.header.command & (byte)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) {
@@ -1250,7 +1329,7 @@ public static class ENet
         return 0;
     }
 
-    public static int enet_protocol_handle_acknowledge(ENetHost *host, ENetEvent *event, ENetPeer *peer, const ENetProtocol *command) {
+    public static int enet_protocol_handle_acknowledge(ENetHost host, ENetEvent @event, ENetPeer peer, ref ENetProtocol command) {
         uint roundTripTime, receivedSentTime, receivedReliableSequenceNumber;
         ENetProtocolCommand commandNumber;
 
@@ -1312,7 +1391,7 @@ public static class ENet
         peer.earliestTimeout = 0;
 
         receivedReliableSequenceNumber = ENET_NET_TO_HOST_16(command.acknowledge.receivedReliableSequenceNumber);
-        commandNumber = enet_protocol_remove_sent_reliable_command(peer, receivedReliableSequenceNumber, command.header.channelID);
+        commandNumber = enet_protocol_remove_sent_reliable_command(peer, (ushort)receivedReliableSequenceNumber, command.header.channelID);
 
         switch (peer.state) {
             case ENetPeerState.ENET_PEER_STATE_ACKNOWLEDGING_CONNECT:
@@ -1320,7 +1399,7 @@ public static class ENet
                     return -1;
                 }
 
-                enet_protocol_notify_connect(host, peer, event);
+                enet_protocol_notify_connect(host, peer, @event);
                 break;
 
             case ENetPeerState.ENET_PEER_STATE_DISCONNECTING:
@@ -1328,7 +1407,7 @@ public static class ENet
                     return -1;
                 }
 
-                enet_protocol_notify_disconnect(host, peer, event);
+                enet_protocol_notify_disconnect(host, peer, @event);
                 break;
 
             case ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER:
@@ -1344,7 +1423,7 @@ public static class ENet
         return 0;
     } /* enet_protocol_handle_acknowledge */
 
-    public static int enet_protocol_handle_verify_connect(ENetHost *host, ENetEvent *event, ENetPeer *peer, const ENetProtocol *command) {
+    public static int enet_protocol_handle_verify_connect(ENetHost host, ENetEvent @event, ENetPeer peer, ref ENetProtocol command) {
         uint mtu, windowSize;
         ulong channelCount;
 
@@ -1354,7 +1433,7 @@ public static class ENet
 
         channelCount = ENET_NET_TO_HOST_32(command.verifyConnect.channelCount);
 
-        if (channelCount < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT ||
+        if (channelCount < ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT ||
             ENET_NET_TO_HOST_32(command.verifyConnect.packetThrottleInterval) != peer.packetThrottleInterval ||
             ENET_NET_TO_HOST_32(command.verifyConnect.packetThrottleAcceleration) != peer.packetThrottleAcceleration ||
             ENET_NET_TO_HOST_32(command.verifyConnect.packetThrottleDeceleration) != peer.packetThrottleDeceleration ||
@@ -1377,10 +1456,10 @@ public static class ENet
 
         mtu = ENET_NET_TO_HOST_32(command.verifyConnect.mtu);
 
-        if (mtu < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_MTU) {
-            mtu = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_MTU;
-        } else if (mtu > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_MTU) {
-            mtu = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_MTU;
+        if (mtu < ENets.ENET_PROTOCOL_MINIMUM_MTU) {
+            mtu = ENets.ENET_PROTOCOL_MINIMUM_MTU;
+        } else if (mtu > ENets.ENET_PROTOCOL_MAXIMUM_MTU) {
+            mtu = ENets.ENET_PROTOCOL_MAXIMUM_MTU;
         }
 
         if (mtu < peer.mtu) {
@@ -1388,12 +1467,12 @@ public static class ENet
         }
 
         windowSize = ENET_NET_TO_HOST_32(command.verifyConnect.windowSize);
-        if (windowSize < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-            windowSize = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+        if (windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+            windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
         }
 
-        if (windowSize > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-            windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+        if (windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+            windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         }
 
         if (windowSize < peer.windowSize) {
@@ -1403,14 +1482,13 @@ public static class ENet
         peer.incomingBandwidth = ENET_NET_TO_HOST_32(command.verifyConnect.incomingBandwidth);
         peer.outgoingBandwidth = ENET_NET_TO_HOST_32(command.verifyConnect.outgoingBandwidth);
 
-        enet_protocol_notify_connect(host, peer, event);
+        enet_protocol_notify_connect(host, peer, @event);
         return 0;
     } /* enet_protocol_handle_verify_connect */
 
-    public static int enet_protocol_handle_incoming_commands(ENetHost *host, ENetEvent *event) {
-        ENetProtocolHeader *header;
-        ENetProtocol *command;
-        ENetPeer *peer;
+    public static int enet_protocol_handle_incoming_commands(ENetHost host, ENetEvent @event) {
+        ENetProtocol command = new ENetProtocol();
+        ENetPeer peer = null;
         byte *currentData;
         ulong headerSize;
         ushort peerID, flags;
@@ -1420,7 +1498,7 @@ public static class ENet
             return 0;
         }
 
-        header = (ENetProtocolHeader *) host.receivedData;
+        ref ENetProtocolHeader header = ref host.receivedData;
 
         peerID    = ENET_NET_TO_HOST_16(header.peerID);
         sessionID = (peerID & ENetProtocolFlag.ENET_PROTOCOL_HEADER_SESSION_MASK) >> ENetProtocolFlag.ENET_PROTOCOL_HEADER_SESSION_SHIFT;
@@ -1429,7 +1507,6 @@ public static class ENet
 
         headerSize = (flags & ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_SENT_TIME ? sizeof(ENetProtocolHeader) : sizeof(ENetProtocolHeaderMinimal));
 
-#ifdef ENET_USE_MORE_PEERS
         if (flags & ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_PEER_EXTRA) {
             if (host.receivedDataLength < headerSize + sizeof(byte)) {
                 return 0;
@@ -1441,7 +1518,6 @@ public static class ENet
 
             headerSize += sizeof (byte);
         }
-#endif
 
         if (host.checksum != null) {
             if (host.receivedDataLength < headerSize + sizeof(uint)) {
@@ -1451,7 +1527,7 @@ public static class ENet
             headerSize += sizeof(uint);
         }
 
-        if (peerID == ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PEER_ID) {
+        if (peerID == ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID) {
             peer = null;
         } else if (peerID >= host.peerCount) {
             return 0;
@@ -1463,7 +1539,7 @@ public static class ENet
                 ((!in6_equal(host.receivedAddress.host , peer.address.host) ||
                 host.receivedAddress.port != peer.address.port) &&
                 1 /* no broadcast in ipv6  !in6_equal(peer.address.host , ENET_HOST_BROADCAST)*/) ||
-                (peer.outgoingPeerID < ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PEER_ID &&
+                (peer.outgoingPeerID < ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID &&
                 sessionID != peer.incomingSessionID)
             ) {
                 return 0;
@@ -1472,11 +1548,11 @@ public static class ENet
 
         if (flags & ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_COMPRESSED) {
             ulong originalSize;
-            if (host.compressor.context == null || host.compressor.decompress == null) {
+            if (host.compressor.context == null || host.compressor.CompressorDecompress == null) {
                 return 0;
             }
 
-            originalSize = host.compressor.decompress(host.compressor.context,
+            originalSize = host.compressor.CompressorDecompress(host.compressor.context,
                 host.receivedData + headerSize,
                 host.receivedDataLength - headerSize,
                 host.packetData[1] + headerSize,
@@ -1510,7 +1586,7 @@ public static class ENet
         if (peer != null) {
             peer.address.host       = host.receivedAddress.host;
             peer.address.port       = host.receivedAddress.port;
-            peer.incomingDataTotal += host.receivedDataLength;
+            peer.incomingDataTotal += (uint)host.receivedDataLength;
             peer.totalDataReceived += host.receivedDataLength;
         }
 
@@ -1544,9 +1620,9 @@ public static class ENet
 
             command.header.reliableSequenceNumber = ENET_NET_TO_HOST_16(command.header.reliableSequenceNumber);
 
-            switch (commandNumber) {
+            switch ((ENetProtocolCommand)commandNumber) {
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_ACKNOWLEDGE:
-                    if (enet_protocol_handle_acknowledge(host, event, peer, command)) {
+                    if (enet_protocol_handle_acknowledge(host, @event, peer, ref command)) {
                         goto commandError;
                     }
                     break;
@@ -1555,38 +1631,38 @@ public static class ENet
                     if (peer != null) {
                         goto commandError;
                     }
-                    peer = enet_protocol_handle_connect(host, header, command);
+                    peer = enet_protocol_handle_connect(host, ref header, ref command);
                     if (peer == null) {
                         goto commandError;
                     }
                     break;
 
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_VERIFY_CONNECT:
-                    if (enet_protocol_handle_verify_connect(host, event, peer, command)) {
+                    if (0 != enet_protocol_handle_verify_connect(host, @event, peer, ref command)) {
                         goto commandError;
                     }
                     break;
 
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_DISCONNECT:
-                    if (enet_protocol_handle_disconnect(host, peer, command)) {
+                    if (0 != enet_protocol_handle_disconnect(host, peer, ref command)) {
                         goto commandError;
                     }
                     break;
 
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_PING:
-                    if (enet_protocol_handle_ping(host, peer, command)) {
+                    if (0 != enet_protocol_handle_ping(host, peer, ref command)) {
                         goto commandError;
                     }
                     break;
 
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_RELIABLE:
-                    if (enet_protocol_handle_send_reliable(host, peer, command, &currentData)) {
+                    if (enet_protocol_handle_send_reliable(host, peer, ref command, &currentData)) {
                         goto commandError;
                     }
                     break;
 
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNRELIABLE:
-                    if (enet_protocol_handle_send_unreliable(host, peer, command, &currentData)) {
+                    if (enet_protocol_handle_send_unreliable(host, peer, ref command, &currentData)) {
                         goto commandError;
                     }
                     break;
@@ -1656,25 +1732,25 @@ public static class ENet
         }
 
     commandError:
-        if (event != null && event.type != ENetEventType.ENET_EVENT_TYPE_NONE) {
+        if (@event != null && @event.type != ENetEventType.ENET_EVENT_TYPE_NONE) {
             return 1;
         }
 
         return 0;
     } /* enet_protocol_handle_incoming_commands */
 
-    public static int enet_protocol_receive_incoming_commands(ENetHost *host, ENetEvent *event) {
+    public static int enet_protocol_receive_incoming_commands(ENetHost host, ENetEvent @event) {
         int packets;
 
         for (packets = 0; packets < 256; ++packets) {
             int receivedLength;
-            ENetBuffer buffer;
+            ENetBuffer buffer = new ENetBuffer();
 
             buffer.data       = host.packetData[0];
             // buffer.dataLength = sizeof (host.packetData[0]);
             buffer.dataLength = host.mtu;
 
-            receivedLength    = enet_socket_receive(host.socket, &host.receivedAddress, &buffer, 1);
+            receivedLength    = enet_socket_receive(host.socket, ref host.receivedAddress, ref buffer, 1);
 
             if (receivedLength == -2)
                 continue;
@@ -1694,9 +1770,9 @@ public static class ENet
             host.totalReceivedPackets++;
 
             if (host.intercept != null) {
-                switch (host.intercept(host, (void *)event)) {
+                switch (host.intercept(host, (void *)@event)) {
                     case 1:
-                        if (event != null && event.type != ENetEventType.ENET_EVENT_TYPE_NONE) {
+                        if (@event != null && @event.type != ENetEventType.ENET_EVENT_TYPE_NONE) {
                             return 1;
                         }
 
@@ -1710,7 +1786,7 @@ public static class ENet
                 }
             }
 
-            switch (enet_protocol_handle_incoming_commands(host, event)) {
+            switch (enet_protocol_handle_incoming_commands(host, @event)) {
                 case 1:
                     return 1;
 
@@ -1725,16 +1801,15 @@ public static class ENet
         return -1;
     } /* enet_protocol_receive_incoming_commands */
 
-    public static void enet_protocol_send_acknowledgements(ENetHost *host, ENetPeer *peer) {
-        ENetProtocol *command = &host.commands[host.commandCount];
-        ENetBuffer *buffer    = &host.buffers[host.bufferCount];
-        ENetAcknowledgement *acknowledgement;
-        ENetListNode currentAcknowledgement;
+    public static void enet_protocol_send_acknowledgements(ENetHost host, ENetPeer peer) {
+        ref ENetProtocol command = ref host.commands[host.commandCount];
+        ref ENetBuffer buffer    = ref host.buffers[host.bufferCount];
+        ENetListNode<ENetAcknowledgement> currentAcknowledgement = null;
         ushort reliableSequenceNumber;
 
-        currentAcknowledgement = enet_list_begin(&peer.acknowledgements);
+        currentAcknowledgement = enet_list_begin(ref peer.acknowledgements);
 
-        while (currentAcknowledgement != enet_list_end(&peer.acknowledgements)) {
+        while (currentAcknowledgement != enet_list_end(ref peer.acknowledgements)) {
             if (command >= &host.commands[sizeof(host.commands) / sizeof(ENetProtocol)] ||
                 buffer >= &host.buffers[sizeof(host.buffers) / sizeof(ENetBuffer)] ||
                 peer.mtu - host.packetSize < sizeof(ENetProtocolAcknowledge)
@@ -1743,7 +1818,7 @@ public static class ENet
                 break;
             }
 
-            acknowledgement = (ENetAcknowledgement *) currentAcknowledgement;
+            ref ENetAcknowledgement acknowledgement = ref currentAcknowledgement.value;
             currentAcknowledgement = enet_list_next(currentAcknowledgement);
 
             buffer.data       = command;
@@ -1773,16 +1848,17 @@ public static class ENet
         host.bufferCount  = buffer - host.buffers;
     } /* enet_protocol_send_acknowledgements */
 
-    public static int enet_protocol_check_timeouts(ENetHost *host, ENetPeer *peer, ENetEvent *event) {
-        ENetOutgoingCommand *outgoingCommand;
-        ENetListNode currentCommand, insertPosition, insertSendReliablePosition;
+    public static int enet_protocol_check_timeouts(ENetHost host, ENetPeer peer, ENetEvent @event)
+    {
+        ENetOutgoingCommand outgoingCommand = null;
+        ENetListNode<ENetOutgoingCommand> currentCommand, insertPosition, insertSendReliablePosition;
 
-        currentCommand = enet_list_begin(&peer.sentReliableCommands);
-        insertPosition = enet_list_begin(&peer.outgoingCommands);
-        insertSendReliablePosition = enet_list_begin(&peer.outgoingSendReliableCommands);
+        currentCommand = enet_list_begin(ref peer.sentReliableCommands);
+        insertPosition = enet_list_begin(ref peer.outgoingCommands);
+        insertSendReliablePosition = enet_list_begin(ref peer.outgoingSendReliableCommands);
 
-        while (currentCommand != enet_list_end(&peer.sentReliableCommands)) {
-            outgoingCommand = (ENetOutgoingCommand *) currentCommand;
+        while (currentCommand != enet_list_end(ref peer.sentReliableCommands)) {
+            outgoingCommand = currentCommand.value;
 
             currentCommand = enet_list_next(currentCommand);
 
@@ -1799,7 +1875,7 @@ public static class ENet
                 ((1u << (outgoingCommand.sendAttempts - 1)) >= peer.timeoutLimit &&
                 ENET_TIME_DIFFERENCE(host.serviceTime, peer.earliestTimeout) >= peer.timeoutMinimum))
             ) {
-                enet_protocol_notify_disconnect_timeout(host, peer, event);
+                enet_protocol_notify_disconnect_timeout(host, peer, @event);
                 return 1;
             }
 
@@ -1812,13 +1888,13 @@ public static class ENet
 
             if (outgoingCommand.packet != null) {
                 peer.reliableDataInTransit -= outgoingCommand.fragmentLength;
-                enet_list_insert(insertSendReliablePosition, enet_list_remove (& outgoingCommand.outgoingCommandList));
+                enet_list_insert(insertSendReliablePosition, enet_list_remove (outgoingCommand.outgoingCommandList));
             } else {
-                enet_list_insert(insertPosition, enet_list_remove (& outgoingCommand.outgoingCommandList));
+                enet_list_insert(insertPosition, enet_list_remove (outgoingCommand.outgoingCommandList));
             }
 
-            if (currentCommand == enet_list_begin(&peer.sentReliableCommands) && !enet_list_empty(&peer.sentReliableCommands)) {
-                outgoingCommand = (ENetOutgoingCommand *) currentCommand;
+            if (currentCommand == enet_list_begin(ref peer.sentReliableCommands) && !enet_list_empty(ref peer.sentReliableCommands)) {
+                outgoingCommand = currentCommand.value;
                 peer.nextTimeout = outgoingCommand.sentTime + outgoingCommand.roundTripTimeout;
             }
         }
@@ -1826,30 +1902,30 @@ public static class ENet
         return 0;
     } /* enet_protocol_check_timeouts */
 
-    public static int enet_protocol_check_outgoing_commands(ENetHost *host, ENetPeer *peer, ENetList *sentUnreliableCommands) {
-        ENetProtocol *command = &host.commands[host.commandCount];
-        ENetBuffer *buffer    = &host.buffers[host.bufferCount];
-        ENetOutgoingCommand *outgoingCommand = null;
-        ENetListNode currentCommand, currentSendReliableCommand;
-        ENetChannel *channel = null;
+    public static int enet_protocol_check_outgoing_commands(ENetHost host, ENetPeer peer, ENetList<ENetOutgoingCommand> sentUnreliableCommands) {
+        ref ENetProtocol command = ref host.commands[host.commandCount];
+        ref ENetBuffer buffer    = ref host.buffers[host.bufferCount];
+        ENetOutgoingCommand outgoingCommand = null;
+        ENetListNode<ENetOutgoingCommand> currentCommand, currentSendReliableCommand = null;
+        ENetChannel channel = null;
         ushort reliableWindow = 0;
         ulong commandSize=0;
         int windowWrap = 0, canPing = 1;
 
-        currentCommand = enet_list_begin(&peer.outgoingCommands);
-        currentSendReliableCommand = enet_list_begin (&peer.outgoingSendReliableCommands);
+        currentCommand = enet_list_begin(ref peer.outgoingCommands);
+        currentSendReliableCommand = enet_list_begin (peer.outgoingSendReliableCommands);
 
         for (;;) {
-            if (currentCommand != enet_list_end (& peer.outgoingCommands))
+            if (currentCommand != enet_list_end (ref peer.outgoingCommands))
             {
-                outgoingCommand = (ENetOutgoingCommand *) currentCommand;
-                if (currentSendReliableCommand != enet_list_end (& peer.outgoingSendReliableCommands) && ENET_TIME_LESS (((ENetOutgoingCommand *) currentSendReliableCommand).queueTime, outgoingCommand.queueTime)) {
+                outgoingCommand = currentCommand.value;
+                if (currentSendReliableCommand != enet_list_end (ref  peer.outgoingSendReliableCommands) && ENET_TIME_LESS (currentSendReliableCommand.value.queueTime, outgoingCommand.queueTime)) {
                     goto useSendReliableCommand;
                 }
                 currentCommand = enet_list_next (currentCommand);
-            } else if (currentSendReliableCommand != enet_list_end (& peer.outgoingSendReliableCommands)) {
+            } else if (currentSendReliableCommand != enet_list_end (ref  peer.outgoingSendReliableCommands)) {
                 useSendReliableCommand:
-                outgoingCommand = (ENetOutgoingCommand *) currentSendReliableCommand;
+                outgoingCommand = currentSendReliableCommand.value;
                 currentSendReliableCommand = enet_list_next (currentSendReliableCommand);
             } else {
                 break;
@@ -1858,28 +1934,28 @@ public static class ENet
 
             if (outgoingCommand.command.header.command & (byte)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) {
                 channel = outgoingCommand.command.header.channelID < peer.channelCount ? & peer.channels [outgoingCommand.command.header.channelID] : null;
-                reliableWindow = outgoingCommand.reliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
+                reliableWindow = outgoingCommand.reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
                 if (channel != null) {
                     if (windowWrap) {
                         continue;
                     } else if (outgoingCommand.sendAttempts < 1 && 
-                            !(outgoingCommand.reliableSequenceNumber % ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE) &&
-                            (channel.reliableWindows [(reliableWindow + ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS - 1) % ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS] >= ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE ||
-                            channel.usedReliableWindows & ((((1u << (ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) << reliableWindow) | 
-                            (((1u << (ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) >> (ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS - reliableWindow))))) 
+                            !(outgoingCommand.reliableSequenceNumber % ENets.ENET_PEER_RELIABLE_WINDOW_SIZE) &&
+                            (channel.reliableWindows [(reliableWindow + ENets.ENET_PEER_RELIABLE_WINDOWS - 1) % ENets.ENET_PEER_RELIABLE_WINDOWS] >= ENets.ENET_PEER_RELIABLE_WINDOW_SIZE ||
+                            channel.usedReliableWindows & ((((1u << (ENets.ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) << reliableWindow) | 
+                            (((1u << (ENets.ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) >> (ENets.ENET_PEER_RELIABLE_WINDOWS - reliableWindow))))) 
                     {
                         windowWrap = 1;
-                        currentSendReliableCommand = enet_list_end (& peer.outgoingSendReliableCommands);
+                        currentSendReliableCommand = enet_list_end(ref peer.outgoingSendReliableCommands);
                         continue;
                     }
                 }
 
                 if (outgoingCommand.packet != null) {
-                    uint windowSize = (peer.packetThrottle * peer.windowSize) / ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE;
+                    uint windowSize = (peer.packetThrottle * peer.windowSize) / ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
 
                     if (peer.reliableDataInTransit + outgoingCommand.fragmentLength > Math.Max (windowSize, peer.mtu))
                     {
-                        currentSendReliableCommand = enet_list_end (& peer.outgoingSendReliableCommands);
+                        currentSendReliableCommand = enet_list_end(ref peer.outgoingSendReliableCommands);
                         continue;
                     }
                 }
@@ -1900,7 +1976,7 @@ public static class ENet
 
             if (outgoingCommand.command.header.command & (byte)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) {
                 channel = outgoingCommand.command.header.channelID < peer.channelCount ? & peer.channels [outgoingCommand.command.header.channelID] : null;
-                reliableWindow = outgoingCommand.reliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
+                reliableWindow = outgoingCommand.reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
                 if (channel != null && outgoingCommand.sendAttempts < 1) {
                     channel.usedReliableWindows |= 1u << reliableWindow;
                     ++channel.reliableWindows[reliableWindow];
@@ -1912,20 +1988,20 @@ public static class ENet
                     outgoingCommand.roundTripTimeout = peer.roundTripTime + 4 * peer.roundTripTimeVariance;
                 }
 
-                if (enet_list_empty(&peer.sentReliableCommands)) {
+                if (enet_list_empty(ref peer.sentReliableCommands)) {
                     peer.nextTimeout = host.serviceTime + outgoingCommand.roundTripTimeout;
                 }
 
-                enet_list_insert(enet_list_end(&peer.sentReliableCommands), enet_list_remove(&outgoingCommand.outgoingCommandList));
+                enet_list_insert(enet_list_end(ref peer.sentReliableCommands), enet_list_remove(outgoingCommand.outgoingCommandList));
 
                 outgoingCommand.sentTime = host.serviceTime;
 
-                host.headerFlags |= ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_SENT_TIME;
+                host.headerFlags |= (ushort)ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_SENT_TIME;
                 peer.reliableDataInTransit += outgoingCommand.fragmentLength;
             } else {
                 if (outgoingCommand.packet != null && outgoingCommand.fragmentOffset == 0) {
-                    peer.packetThrottleCounter += ENetPeerConst.ENET_PEER_PACKET_THROTTLE_COUNTER;
-                    peer.packetThrottleCounter %= ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE;
+                    peer.packetThrottleCounter += ENets.ENET_PEER_PACKET_THROTTLE_COUNTER;
+                    peer.packetThrottleCounter %= ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
 
                     if (peer.packetThrottleCounter > peer.packetThrottle) {
                         ushort reliableSequenceNumber = outgoingCommand.reliableSequenceNumber,
@@ -1938,14 +2014,14 @@ public static class ENet
                                 enet_packet_destroy(outgoingCommand.packet);
                             }
 
-                            enet_list_remove(& outgoingCommand.outgoingCommandList);
+                            enet_list_remove(outgoingCommand.outgoingCommandList);
                             enet_free(outgoingCommand);
 
-                            if (currentCommand == enet_list_end (& peer.outgoingCommands)) {
+                            if (currentCommand == enet_list_end (ref peer.outgoingCommands)) {
                                 break;
                             }
 
-                            outgoingCommand = (ENetOutgoingCommand *) currentCommand;
+                            outgoingCommand = currentCommand.value;
                             if (outgoingCommand.reliableSequenceNumber != reliableSequenceNumber ||
                                 outgoingCommand.unreliableSequenceNumber != unreliableSequenceNumber) {
                                 break;
@@ -1961,7 +2037,7 @@ public static class ENet
                 enet_list_remove(&outgoingCommand.outgoingCommandList);
 
                 if (outgoingCommand.packet != null) {
-                    enet_list_insert(enet_list_end (sentUnreliableCommands), outgoingCommand);
+                    enet_list_insert(enet_list_end (ref sentUnreliableCommands), outgoingCommand);
                 }
             }
 
@@ -1971,7 +2047,7 @@ public static class ENet
 
             host.packetSize  += buffer.dataLength;
 
-            *command = outgoingCommand.command;
+            command = outgoingCommand.command;
 
             if (outgoingCommand.packet != null) {
                 ++buffer;
@@ -2001,22 +2077,20 @@ public static class ENet
         return canPing;
     } /* enet_protocol_send_reliable_outgoing_commands */
 
-    public static int enet_protocol_send_outgoing_commands(ENetHost *host, ENetEvent *event, int checkForTimeouts) {
-        byte headerData[
-            sizeof(ENetProtocolHeader) 
-#ifdef ENET_USE_MORE_PEERS
+    public static int enet_protocol_send_outgoing_commands(ENetHost host, ENetEvent @event, int checkForTimeouts) {
+        Span<byte> headerData = stackalloc byte[
+            Marshal.SizeOf<ENetProtocolHeader>()
             + sizeof(byte) // additional peer id byte
-#endif
             + sizeof(uint)
         ];
-        ENetProtocolHeader *header = (ENetProtocolHeader *) headerData;
+        ref ENetProtocolHeader header = (ENetProtocolHeader) headerData;
         int sentLength = 0;
         ulong shouldCompress = 0;
-        ENetList sentUnreliableCommands;
+        ENetList<ENetOutgoingCommand> sentUnreliableCommands;
         int sendPass = 0, continueSending = 0;
-        ENetPeer *currentPeer;
+        ENetPeer currentPeer = null;
 
-        enet_list_clear (&sentUnreliableCommands);
+        enet_list_clear(ref sentUnreliableCommands);
 
         for (; sendPass <= continueSending; ++ sendPass)
             for(currentPeer = host.peers; currentPeer < &host.peers[host.peerCount]; ++currentPeer) {
@@ -2031,16 +2105,16 @@ public static class ENet
                 host.bufferCount  = 1;
                 host.packetSize   = sizeof(ENetProtocolHeader);
 
-                if (!enet_list_empty(&currentPeer.acknowledgements)) {
+                if (!enet_list_empty(ref currentPeer.acknowledgements)) {
                     enet_protocol_send_acknowledgements(host, currentPeer);
                 }
 
                 if (checkForTimeouts != 0 &&
-                    !enet_list_empty(&currentPeer.sentReliableCommands) &&
+                    !enet_list_empty(ref currentPeer.sentReliableCommands) &&
                     ENET_TIME_GREATER_EQUAL(host.serviceTime, currentPeer.nextTimeout) &&
-                    enet_protocol_check_timeouts(host, currentPeer, event) == 1
+                    enet_protocol_check_timeouts(host, currentPeer, @event) == 1
                 ) {
-                    if (event != null && event.type != ENetEventType.ENET_EVENT_TYPE_NONE) {
+                    if (@event != null && @event.type != ENetEventType.ENET_EVENT_TYPE_NONE) {
                         return 1;
                     } else {
                         goto nextPeer;
@@ -2049,8 +2123,8 @@ public static class ENet
 
                 if (((enet_list_empty (& currentPeer.outgoingCommands) &&
                     enet_list_empty (& currentPeer.outgoingSendReliableCommands)) ||
-                    enet_protocol_check_outgoing_commands (host, currentPeer, &sentUnreliableCommands)) &&
-                    enet_list_empty(&currentPeer.sentReliableCommands) &&
+                    enet_protocol_check_outgoing_commands (host, currentPeer, sentUnreliableCommands)) &&
+                    enet_list_empty(ref currentPeer.sentReliableCommands) &&
                     ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.lastReceiveTime) >= currentPeer.pingInterval &&
                     currentPeer.mtu - host.packetSize >= sizeof(ENetProtocolPing)
                 ) {
@@ -2064,20 +2138,20 @@ public static class ENet
 
                 if (currentPeer.packetLossEpoch == 0) {
                     currentPeer.packetLossEpoch = host.serviceTime;
-                } else if (ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.packetLossEpoch) >= ENetPeerConst.ENET_PEER_PACKET_LOSS_INTERVAL && currentPeer.packetsSent > 0) {
-                    uint packetLoss = currentPeer.packetsLost * ENetPeerConst.ENET_PEER_PACKET_LOSS_SCALE / currentPeer.packetsSent;
+                } else if (ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.packetLossEpoch) >= ENets.ENET_PEER_PACKET_LOSS_INTERVAL && currentPeer.packetsSent > 0) {
+                    uint packetLoss = currentPeer.packetsLost * ENets.ENET_PEER_PACKET_LOSS_SCALE / currentPeer.packetsSent;
 
-                    #ifdef ENET_DEBUG
+#ifdef ENET_DEBUG
                     printf(
                         "peer %u: %f%%+-%f%% packet loss, %u+-%u ms round trip time, %f%% throttle, %llu outgoing, %llu/%llu incoming\n", currentPeer.incomingPeerID,
-                        currentPeer.packetLoss / (float) ENetPeerConst.ENET_PEER_PACKET_LOSS_SCALE,
-                        currentPeer.packetLossVariance / (float) ENetPeerConst.ENET_PEER_PACKET_LOSS_SCALE, currentPeer.roundTripTime, currentPeer.roundTripTimeVariance,
-                        currentPeer.packetThrottle / (float) ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE,
-                        enet_list_size(&currentPeer.outgoingCommands),
-                        currentPeer.channels != null ? enet_list_size( &currentPeer.channels.incomingReliableCommands) : 0llu,
-                        currentPeer.channels != null ? enet_list_size(&currentPeer.channels.incomingUnreliableCommands) : 0llu
+                        currentPeer.packetLoss / (float) ENets.ENET_PEER_PACKET_LOSS_SCALE,
+                        currentPeer.packetLossVariance / (float) ENets.ENET_PEER_PACKET_LOSS_SCALE, currentPeer.roundTripTime, currentPeer.roundTripTimeVariance,
+                        currentPeer.packetThrottle / (float) ENets.ENET_PEER_PACKET_THROTTLE_SCALE,
+                        enet_list_size(currentPeer.outgoingCommands),
+                        currentPeer.channels != null ? enet_list_size(currentPeer.channels[0].incomingReliableCommands) : 0,
+                        currentPeer.channels != null ? enet_list_size(currentPeer.channels[0].incomingUnreliableCommands) : 0
                     );
-                    #endif
+#endif
 
                     currentPeer.packetLossVariance = (currentPeer.packetLossVariance * 3 + ENET_DIFFERENCE(packetLoss, currentPeer.packetLoss)) / 4;
                     currentPeer.packetLoss = (currentPeer.packetLoss * 7 + packetLoss) / 8;
@@ -2096,9 +2170,9 @@ public static class ENet
                 }
 
                 shouldCompress = 0;
-                if (host.compressor.context != null && host.compressor.compress != null) {
+                if (host.compressor.context != null && host.compressor.CompressorCompress != null) {
                     ulong originalSize = host.packetSize - sizeof(ENetProtocolHeader),
-                      compressedSize    = host.compressor.compress(host.compressor.context, &host.buffers[1], host.bufferCount - 1, originalSize, host.packetData[1], originalSize);
+                      compressedSize    = host.compressor.CompressorCompress(host.compressor.context, &host.buffers[1], host.bufferCount - 1, originalSize, host.packetData[1], originalSize);
                     if (compressedSize > 0 && compressedSize < originalSize) {
                         host.headerFlags |= ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_COMPRESSED;
                         shouldCompress     = compressedSize;
@@ -2108,11 +2182,10 @@ public static class ENet
                     }
                 }
 
-                if (currentPeer.outgoingPeerID < ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PEER_ID) {
+                if (currentPeer.outgoingPeerID < ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID) {
                     host.headerFlags |= currentPeer.outgoingSessionID << ENetProtocolFlag.ENET_PROTOCOL_HEADER_SESSION_SHIFT;
                 }
 
-#ifdef ENET_USE_MORE_PEERS
                 {
                     ushort basePeerID = (ushort)(currentPeer.outgoingPeerID & 0x07FF);
                     ushort flagsAndSession = (ushort)(host.headerFlags & 0xF800); /* top bits only */
@@ -2133,13 +2206,10 @@ public static class ENet
                         header.peerID = ENET_HOST_TO_NET_16(basePeerID | flagsAndSession);
                     }
                 }
-#else
-                header.peerID = ENET_HOST_TO_NET_16(currentPeer.outgoingPeerID | host.headerFlags);
-#endif
 
                 if (host.checksum != null) {
                     uint *checksum = (uint *) &headerData[host.buffers[0].dataLength];
-                    *checksum = currentPeer.outgoingPeerID < ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PEER_ID ? currentPeer.connectID : 0;
+                    *checksum = currentPeer.outgoingPeerID < ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID ? currentPeer.connectID : 0;
                     host.buffers[0].dataLength += sizeof(uint);
                     *checksum = host.checksum(host.buffers, host.bufferCount);
                 }
@@ -2182,7 +2252,7 @@ public static class ENet
      *  @remarks this function need only be used in circumstances where one wishes to send queued packets earlier than in a call to enet_host_service().
      *  @ingroup host
      */
-public static void enet_host_flush(ENetHost *host) {
+    public static void enet_host_flush(ENetHost host) {
         host.serviceTime = enet_time_get();
         enet_protocol_send_outgoing_commands(host, null, 0);
     }
@@ -2196,14 +2266,14 @@ public static void enet_host_flush(ENetHost *host) {
      *  @retval < 0 on failure
      *  @ingroup host
      */
-    public static int enet_host_check_events(ENetHost *host, ENetEvent *event) {
+    public static int enet_host_check_events(ENetHost *host, ENetEvent @event) {
         if (event == null) { return -1; }
 
         event.type   = ENetEventType.ENET_EVENT_TYPE_NONE;
         event.peer   = null;
         event.packet = null;
 
-        return enet_protocol_dispatch_incoming_commands(host, event);
+        return enet_protocol_dispatch_incoming_commands(host, @event);
     }
 
     /** Waits for events on the host specified and shuttles packets between
@@ -2219,15 +2289,15 @@ public static void enet_host_flush(ENetHost *host) {
      *  @remarks enet_host_service should be called fairly regularly for adequate performance
      *  @ingroup host
      */
-    public static int enet_host_service(ENetHost *host, ENetEvent *event, uint timeout) {
+    public static int enet_host_service(ENetHost host, ENetEvent @event, uint timeout) {
         uint waitCondition;
 
-        if (event != null) {
-            event.type   = ENetEventType.ENET_EVENT_TYPE_NONE;
-            event.peer   = null;
-            event.packet = null;
+        if (@event != null) {
+            @event.type   = ENetEventType.ENET_EVENT_TYPE_NONE;
+            @event.peer   = null;
+            @event.packet = null;
 
-            switch (enet_protocol_dispatch_incoming_commands(host, event)) {
+            switch (enet_protocol_dispatch_incoming_commands(host, @event)) {
                 case 1:
                     return 1;
 
@@ -2247,11 +2317,11 @@ public static void enet_host_flush(ENetHost *host) {
         timeout += host.serviceTime;
 
         do {
-            if (ENET_TIME_DIFFERENCE(host.serviceTime, host.bandwidthThrottleEpoch) >= ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL) {
+            if (ENET_TIME_DIFFERENCE(host.serviceTime, host.bandwidthThrottleEpoch) >= ENets.ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL) {
                 enet_host_bandwidth_throttle(host);
             }
 
-            switch (enet_protocol_send_outgoing_commands(host, event, 1)) {
+            switch (enet_protocol_send_outgoing_commands(host, @event, 1)) {
                 case 1:
                     return 1;
 
@@ -2266,7 +2336,7 @@ public static void enet_host_flush(ENetHost *host) {
                     break;
             }
 
-            switch (enet_protocol_receive_incoming_commands(host, event)) {
+            switch (enet_protocol_receive_incoming_commands(host, @event)) {
                 case 1:
                     return 1;
 
@@ -2281,7 +2351,7 @@ public static void enet_host_flush(ENetHost *host) {
                     break;
             }
 
-            switch (enet_protocol_send_outgoing_commands(host, event, 1)) {
+            switch (enet_protocol_send_outgoing_commands(host, @event, 1)) {
                 case 1:
                     return 1;
 
@@ -2297,7 +2367,7 @@ public static void enet_host_flush(ENetHost *host) {
             }
 
             if (event != null) {
-                switch (enet_protocol_dispatch_incoming_commands(host, event)) {
+                switch (enet_protocol_dispatch_incoming_commands(host, @event)) {
                     case 1:
                         return 1;
 
@@ -2337,11 +2407,11 @@ public static void enet_host_flush(ENetHost *host) {
     } /* enet_host_service */
 
 
-// =======================================================================//
-// !
-// ! Peer
-// !
-// =======================================================================//
+    // =======================================================================//
+    // !
+    // ! Peer
+    // !
+    // =======================================================================//
 
     /** Configures throttle parameter for a peer.
      *
@@ -2372,8 +2442,9 @@ public static void enet_host_flush(ENetHost *host) {
      *  @param acceleration rate at which to increase the throttle probability as mean RTT declines
      *  @param deceleration rate at which to decrease the throttle probability as mean RTT increases
      */
-public static void enet_peer_throttle_configure(ENetPeer *peer, uint interval, uint acceleration, uint deceleration) {
-        ENetProtocol command;
+    public static void enet_peer_throttle_configure(ENetPeer peer, uint interval, uint acceleration, uint deceleration)
+    {
+        ENetProtocol command = new ENetProtocol();
 
         peer.packetThrottleInterval     = interval;
         peer.packetThrottleAcceleration = acceleration;
@@ -2386,10 +2457,10 @@ public static void enet_peer_throttle_configure(ENetPeer *peer, uint interval, u
         command.throttleConfigure.packetThrottleAcceleration = ENET_HOST_TO_NET_32(acceleration);
         command.throttleConfigure.packetThrottleDeceleration = ENET_HOST_TO_NET_32(deceleration);
 
-        enet_peer_queue_outgoing_command(peer, &command, null, 0, 0);
+        enet_peer_queue_outgoing_command(peer, ref command, null, 0, 0);
     }
 
-    public static int enet_peer_throttle(ENetPeer *peer, uint rtt) {
+    public static int enet_peer_throttle(ENetPeer peer, uint rtt) {
         if (peer.lastRoundTripTime <= peer.lastRoundTripTimeVariance) {
             peer.packetThrottle = peer.packetThrottleLimit;
         }
@@ -2416,23 +2487,23 @@ public static void enet_peer_throttle_configure(ENetPeer *peer, uint interval, u
     }
 
     /* Extended functionality for easier binding in other programming languages */
-    uint enet_host_get_peers_count(ENetHost *host) {
+    public static ulong enet_host_get_peers_count(ENetHost host) {
         return host.connectedPeers;
     }
 
-    uint enet_host_get_packets_sent(ENetHost *host) {
+    public static uint enet_host_get_packets_sent(ENetHost host) {
         return host.totalSentPackets;
     }
 
-    uint enet_host_get_packets_received(ENetHost *host) {
+    public static uint enet_host_get_packets_received(ENetHost host) {
         return host.totalReceivedPackets;
     }
 
-    uint enet_host_get_bytes_sent(ENetHost *host) {
+    public static uint enet_host_get_bytes_sent(ENetHost host) {
         return host.totalSentData;
     }
 
-    uint enet_host_get_bytes_received(ENetHost *host) {
+    public static uint enet_host_get_bytes_received(ENetHost host) {
         return host.totalReceivedData;
     }
 
@@ -2441,69 +2512,69 @@ public static void enet_peer_throttle_configure(ENetPeer *peer, uint interval, u
      *  @param data ouput parameter for recevied data
      *  @retval buffer length
      */
-    uint enet_host_get_received_data(ENetHost *host, /*out*/ byte** data) {
+    public static uint enet_host_get_received_data(ENetHost host, /*out*/ byte** data) {
         *data = host.receivedData;
         return host.receivedDataLength;
     }
 
-    uint enet_host_get_mtu(ENetHost *host) {
+    public static uint enet_host_get_mtu(ENetHost host) {
         return host.mtu;
     }
 
-    uint enet_peer_get_id(ENetPeer *peer) {
+    public static uint enet_peer_get_id(ENetPeer peer) {
         return peer.connectID;
     }
 
-    uint enet_peer_get_ip(ENetPeer *peer, char *ip, ulong ipLength) {
-        return enet_address_get_host_ip(&peer.address, ip, ipLength);
+    public static uint enet_peer_get_ip(ENetPeer peer, string ip, ulong ipLength) {
+        return enet_address_get_host_ip(peer.address, ip, ipLength);
     }
 
-    ushort enet_peer_get_port(ENetPeer *peer) {
+    public static ushort enet_peer_get_port(ENetPeer peer) {
         return peer.address.port;
     }
 
-    ENetPeerState enet_peer_get_state(ENetPeer *peer) {
+    public static ENetPeerState enet_peer_get_state(ENetPeer peer) {
         return peer.state;
     }
 
-    uint enet_peer_get_rtt(ENetPeer *peer) {
+    public static uint enet_peer_get_rtt(ENetPeer peer) {
         return peer.roundTripTime;
     }
 
-    ulong enet_peer_get_packets_sent(ENetPeer *peer) {
+    public static ulong enet_peer_get_packets_sent(ENetPeer peer) {
         return peer.totalPacketsSent;
     }
 
-    uint enet_peer_get_packets_lost(ENetPeer *peer) {
+    public static uint enet_peer_get_packets_lost(ENetPeer peer) {
         return peer.totalPacketsLost;
     }
 
-    ulong enet_peer_get_bytes_sent(ENetPeer *peer) {
+    public static ulong enet_peer_get_bytes_sent(ENetPeer peer) {
         return peer.totalDataSent;
     }
 
-    ulong enet_peer_get_bytes_received(ENetPeer *peer) {
+    public static ulong enet_peer_get_bytes_received(ENetPeer peer) {
         return peer.totalDataReceived;
     }
 
-    void * enet_peer_get_data(ENetPeer *peer) {
-        return (void *) peer.data;
+    public static object enet_peer_get_data(ENetPeer peer) {
+        return peer.data;
     }
 
-public static void enet_peer_set_data(ENetPeer *peer, const void *data) {
-        peer.data = (uint *) data;
+    public static void enet_peer_set_data(ENetPeer peer, object data) {
+        peer.data = data;
     }
 
-    void * enet_packet_get_data(ENetPacket *packet) {
-        return (void *) packet.data;
+    public static object enet_packet_get_data(ENetPacket packet) {
+        return packet.data;
     }
 
-    uint enet_packet_get_length(ENetPacket *packet) {
+    public static ulong enet_packet_get_length(ENetPacket packet) {
         return packet.dataLength;
     }
 
-public static void enet_packet_set_free_callback(ENetPacket *packet, void *callback) {
-        packet.freeCallback = (ENetPacketFreeCallback)callback;
+    public static void enet_packet_set_free_callback(ENetPacket packet, ENetPacketFreeCallback callback) {
+        packet.freeCallback = callback;
     }
 
     /** Queues a packet to be sent.
@@ -2518,16 +2589,15 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
      *  @retval 0 on success
      *  @retval < 0 on failure
      */
-    public static int enet_peer_send(ENetPeer *peer, byte channelID, ENetPacket *packet) {
-        ENetChannel *channel = &peer.channels[channelID];
-        ENetProtocol command;
+    public static int enet_peer_send(ENetPeer peer, byte channelID, ENetPacket packet) {
+        ENetChannel channel = peer.channels[channelID];
         ulong fragmentLength;
 
         if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED || channelID >= peer.channelCount || packet.dataLength > peer.host.maximumPacketSize) {
             return -1;
         }
 
-        fragmentLength = peer.mtu - sizeof(ENetProtocolHeader) - sizeof(ENetProtocolSendFragment);
+        fragmentLength = peer.mtu - (uint)Marshal.SizeOf<ENetProtocolHeader>() - (uint)Marshal.SizeOf<ENetProtocolSendFragment>();
         if (peer.host.checksum != null) {
             fragmentLength -= sizeof(uint);
         }
@@ -2536,10 +2606,10 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
             uint fragmentCount = (packet.dataLength + fragmentLength - 1) / fragmentLength, fragmentNumber, fragmentOffset;
             byte commandNumber;
             ushort startSequenceNumber;
-            ENetList fragments;
-            ENetOutgoingCommand *fragment;
+            ENetList<ENetOutgoingCommand> fragments = new ENetList<ENetOutgoingCommand>();
+            ENetOutgoingCommand fragment;
 
-            if (fragmentCount > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT) {
+            if (fragmentCount > ENets.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT) {
                 return -1;
             }
 
@@ -2554,7 +2624,7 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
                 startSequenceNumber = ENET_HOST_TO_NET_16(channel.outgoingReliableSequenceNumber + 1);
             }
 
-            enet_list_clear(&fragments);
+            enet_list_clear(fragments);
 
             for (fragmentNumber = 0, fragmentOffset = 0; fragmentOffset < packet.dataLength; ++fragmentNumber, fragmentOffset += fragmentLength) {
                 if (packet.dataLength - fragmentOffset < fragmentLength) {
@@ -2564,8 +2634,8 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
                 fragment = (ENetOutgoingCommand *) enet_malloc(sizeof(ENetOutgoingCommand));
 
                 if (fragment == null) {
-                    while (!enet_list_empty(&fragments)) {
-                        fragment = (ENetOutgoingCommand *) enet_list_remove(enet_list_begin(&fragments));
+                    while (!enet_list_empty(ref fragments)) {
+                        fragment = enet_list_remove(enet_list_begin(ref fragments));
 
                         enet_free(fragment);
                     }
@@ -2581,41 +2651,42 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
 
                 fragment.command.sendFragment.startSequenceNumber = startSequenceNumber;
 
-                fragment.command.sendFragment.dataLength     = ENET_HOST_TO_NET_16(fragmentLength);
+                fragment.command.sendFragment.dataLength     = ENET_HOST_TO_NET_16((ushort)fragmentLength);
                 fragment.command.sendFragment.fragmentCount  = ENET_HOST_TO_NET_32(fragmentCount);
                 fragment.command.sendFragment.fragmentNumber = ENET_HOST_TO_NET_32(fragmentNumber);
-                fragment.command.sendFragment.totalLength    = ENET_HOST_TO_NET_32(packet.dataLength);
+                fragment.command.sendFragment.totalLength    = ENET_HOST_TO_NET_32((uint)packet.dataLength);
                 fragment.command.sendFragment.fragmentOffset = ENET_NET_TO_HOST_32(fragmentOffset);
 
-                enet_list_insert(enet_list_end(&fragments), fragment);
+                enet_list_insert(enet_list_end(ref fragments), fragment);
             }
 
             packet.referenceCount += fragmentNumber;
 
-            while (!enet_list_empty(&fragments)) {
-                fragment = (ENetOutgoingCommand *) enet_list_remove(enet_list_begin(&fragments));
+            while (!enet_list_empty(ref fragments)) {
+                fragment = enet_list_remove(enet_list_begin(ref fragments));
                 enet_peer_setup_outgoing_command(peer, fragment);
             }
 
             return 0;
         }
 
+        ENetProtocol command = new ENetProtocol();
         command.header.channelID = channelID;
 
         if ((packet.flags & (ENetPacketFlag.ENET_PACKET_FLAG_RELIABLE | ENetPacketFlag.ENET_PACKET_FLAG_UNSEQUENCED)) == ENetPacketFlag.ENET_PACKET_FLAG_UNSEQUENCED) {
-            command.header.command = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED | (int)ENET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED;
-            command.sendUnsequenced.dataLength = ENET_HOST_TO_NET_16(packet.dataLength);
+            command.header.command = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED;
+            command.sendUnsequenced.dataLength = ENET_HOST_TO_NET_16((ushort)packet.dataLength);
         }
         else if (packet.flags & ENetPacketFlag.ENET_PACKET_FLAG_RELIABLE || channel.outgoingUnreliableSequenceNumber >= 0xFFFF) {
             command.header.command = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_RELIABLE | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
-            command.sendReliable.dataLength = ENET_HOST_TO_NET_16(packet.dataLength);
+            command.sendReliable.dataLength = ENET_HOST_TO_NET_16((ushort)packet.dataLength);
         }
         else {
             command.header.command = ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNRELIABLE;
-            command.sendUnreliable.dataLength = ENET_HOST_TO_NET_16(packet.dataLength);
+            command.sendUnreliable.dataLength = ENET_HOST_TO_NET_16((ushort)packet.dataLength);
         }
 
-        if (enet_peer_queue_outgoing_command(peer, &command, packet, 0, packet.dataLength) == null) {
+        if (enet_peer_queue_outgoing_command(peer, ref command, packet, 0, packet.dataLength) == null) {
             return -1;
         }
 
@@ -2631,11 +2702,11 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
         ENetIncomingCommand incomingCommand;
         ENetPacket packet;
 
-        if (enet_list_empty(peer.dispatchedCommands)) {
+        if (enet_list_empty(ref peer.dispatchedCommands)) {
             return null;
         }
 
-        incomingCommand = enet_list_remove(enet_list_begin(peer.dispatchedCommands));
+        incomingCommand = enet_list_remove(enet_list_begin(ref peer.dispatchedCommands));
 
         //if (channelID != null) {
             channelID = incomingCommand.command.header.channelID;
@@ -2657,8 +2728,8 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
     public static void enet_peer_reset_outgoing_commands(ENetPeer peer, ENetList<ENetOutgoingCommand> queue) {
         ENetOutgoingCommand outgoingCommand;
 
-        while (!enet_list_empty(queue)) {
-            outgoingCommand = enet_list_remove(enet_list_begin(queue));
+        while (!enet_list_empty(ref queue)) {
+            outgoingCommand = enet_list_remove(enet_list_begin(ref queue));
 
             if (outgoingCommand.packet != null) {
                 --outgoingCommand.packet.referenceCount;
@@ -2707,7 +2778,7 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
     }
 
     public static void enet_peer_reset_incoming_commands(ENetPeer peer, ENetList<ENetIncomingCommand> queue) {
-        enet_peer_remove_incoming_commands(peer, queue, enet_list_begin(queue), enet_list_end(queue), null);
+        enet_peer_remove_incoming_commands(peer, queue, enet_list_begin(ref queue), enet_list_end(ref queue), null);
     }
 
     public static void enet_peer_reset_queues(ENetPeer peer) {
@@ -2719,8 +2790,8 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
             peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
         }
 
-        while (!enet_list_empty(peer.acknowledgements)) {
-            enet_free(enet_list_remove(enet_list_begin(peer.acknowledgements)));
+        while (!enet_list_empty(ref peer.acknowledgements)) {
+            enet_free(enet_list_remove(enet_list_begin(ref peer.acknowledgements)));
         }
 
         enet_peer_reset_outgoing_commands(peer, peer.sentReliableCommands);
@@ -2771,7 +2842,7 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
 
         // We don't want to reset connectID here, otherwise, we can't get it in the Disconnect event
         // peer.connectID                     = 0;
-        peer.outgoingPeerID                = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PEER_ID;
+        peer.outgoingPeerID                = ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID;
         peer.state                         = ENetPeerState.ENET_PEER_STATE_DISCONNECTED;
         peer.incomingBandwidth             = 0;
         peer.outgoingBandwidth             = 0;
@@ -2792,27 +2863,27 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
         peer.totalPacketsLost              = 0;
         peer.packetLoss                    = 0;
         peer.packetLossVariance            = 0;
-        peer.packetThrottle                = ENetPeerConst.ENET_PEER_DEFAULT_PACKET_THROTTLE;
-        peer.packetThrottleLimit           = ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE;
+        peer.packetThrottle                = ENets.ENET_PEER_DEFAULT_PACKET_THROTTLE;
+        peer.packetThrottleLimit           = ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
         peer.packetThrottleCounter         = 0;
         peer.packetThrottleEpoch           = 0;
-        peer.packetThrottleAcceleration    = ENetPeerConst.ENET_PEER_PACKET_THROTTLE_ACCELERATION;
-        peer.packetThrottleDeceleration    = ENetPeerConst.ENET_PEER_PACKET_THROTTLE_DECELERATION;
-        peer.packetThrottleInterval        = ENetPeerConst.ENET_PEER_PACKET_THROTTLE_INTERVAL;
-        peer.pingInterval                  = ENetPeerConst.ENET_PEER_PING_INTERVAL;
-        peer.timeoutLimit                  = ENetPeerConst.ENET_PEER_TIMEOUT_LIMIT;
-        peer.timeoutMinimum                = ENetPeerConst.ENET_PEER_TIMEOUT_MINIMUM;
-        peer.timeoutMaximum                = ENetPeerConst.ENET_PEER_TIMEOUT_MAXIMUM;
-        peer.lastRoundTripTime             = ENetPeerConst.ENET_PEER_DEFAULT_ROUND_TRIP_TIME;
-        peer.lowestRoundTripTime           = ENetPeerConst.ENET_PEER_DEFAULT_ROUND_TRIP_TIME;
+        peer.packetThrottleAcceleration    = ENets.ENET_PEER_PACKET_THROTTLE_ACCELERATION;
+        peer.packetThrottleDeceleration    = ENets.ENET_PEER_PACKET_THROTTLE_DECELERATION;
+        peer.packetThrottleInterval        = ENets.ENET_PEER_PACKET_THROTTLE_INTERVAL;
+        peer.pingInterval                  = ENets.ENET_PEER_PING_INTERVAL;
+        peer.timeoutLimit                  = ENets.ENET_PEER_TIMEOUT_LIMIT;
+        peer.timeoutMinimum                = ENets.ENET_PEER_TIMEOUT_MINIMUM;
+        peer.timeoutMaximum                = ENets.ENET_PEER_TIMEOUT_MAXIMUM;
+        peer.lastRoundTripTime             = ENets.ENET_PEER_DEFAULT_ROUND_TRIP_TIME;
+        peer.lowestRoundTripTime           = ENets.ENET_PEER_DEFAULT_ROUND_TRIP_TIME;
         peer.lastRoundTripTimeVariance     = 0;
         peer.highestRoundTripTimeVariance  = 0;
-        peer.roundTripTime                 = ENetPeerConst.ENET_PEER_DEFAULT_ROUND_TRIP_TIME;
+        peer.roundTripTime                 = ENets.ENET_PEER_DEFAULT_ROUND_TRIP_TIME;
         peer.roundTripTimeVariance         = 0;
         peer.mtu                           = peer.host.mtu;
         peer.reliableDataInTransit         = 0;
         peer.outgoingReliableSequenceNumber = 0;
-        peer.windowSize                    = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+        peer.windowSize                    = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         peer.incomingUnsequencedGroup      = 0;
         peer.outgoingUnsequencedGroup      = 0;
         peer.eventData                     = 0;
@@ -2831,17 +2902,17 @@ public static void enet_packet_set_free_callback(ENetPacket *packet, void *callb
      *  peers at regular intervals, however, this function may be called to ensure more
      *  frequent ping requests.
      */
-public static void enet_peer_ping(ENetPeer *peer) {
-        ENetProtocol command;
+    public static void enet_peer_ping(ENetPeer peer) {
 
         if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED) {
             return;
         }
 
+        ENetProtocol command = new ENetProtocol();
         command.header.command   = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_PING | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
         command.header.channelID = 0xFF;
 
-        enet_peer_queue_outgoing_command(peer, &command, null, 0, 0);
+        enet_peer_queue_outgoing_command(peer, ref command, null, 0, 0);
     }
 
     /** Sets the interval at which pings will be sent to a peer.
@@ -2853,8 +2924,8 @@ public static void enet_peer_ping(ENetPeer *peer) {
      *  @param peer the peer to adjust
      *  @param pingInterval the interval at which to send pings; defaults to ENET_PEER_PING_INTERVAL if 0
      */
-public static void enet_peer_ping_interval(ENetPeer *peer, uint pingInterval) {
-        peer.pingInterval = pingInterval ? pingInterval : (uint)ENetPeerConst.ENET_PEER_PING_INTERVAL;
+public static void enet_peer_ping_interval(ENetPeer peer, uint pingInterval) {
+        peer.pingInterval = pingInterval ? pingInterval : (uint)ENets.ENET_PEER_PING_INTERVAL;
     }
 
     /** Sets the timeout parameters for a peer.
@@ -2874,10 +2945,10 @@ public static void enet_peer_ping_interval(ENetPeer *peer, uint pingInterval) {
      *  @param timeoutMaximum the timeout maximum; defaults to ENET_PEER_TIMEOUT_MAXIMUM if 0
      */
 
-public static void enet_peer_timeout(ENetPeer *peer, uint timeoutLimit, uint timeoutMinimum, uint timeoutMaximum) {
-        peer.timeoutLimit   = timeoutLimit ? timeoutLimit : (uint)ENetPeerConst.ENET_PEER_TIMEOUT_LIMIT;
-        peer.timeoutMinimum = timeoutMinimum ? timeoutMinimum : (uint)ENetPeerConst.ENET_PEER_TIMEOUT_MINIMUM;
-        peer.timeoutMaximum = timeoutMaximum ? timeoutMaximum : (uint)ENetPeerConst.ENET_PEER_TIMEOUT_MAXIMUM;
+    public static void enet_peer_timeout(ENetPeer peer, uint timeoutLimit, uint timeoutMinimum, uint timeoutMaximum) {
+        peer.timeoutLimit   = 0 < timeoutLimit ? timeoutLimit : (uint)ENets.ENET_PEER_TIMEOUT_LIMIT;
+        peer.timeoutMinimum = 0 < timeoutMinimum ? timeoutMinimum : (uint)ENets.ENET_PEER_TIMEOUT_MINIMUM;
+        peer.timeoutMaximum = 0 < timeoutMaximum ? timeoutMaximum : (uint)ENets.ENET_PEER_TIMEOUT_MAXIMUM;
     }
 
     /** Force an immediate disconnection from a peer.
@@ -2887,8 +2958,7 @@ public static void enet_peer_timeout(ENetPeer *peer, uint timeoutLimit, uint tim
      *  guaranteed to receive the disconnect notification, and is reset immediately upon
      *  return from this function.
      */
-public static void enet_peer_disconnect_now(ENetPeer *peer, uint data) {
-        ENetProtocol command;
+    public static void enet_peer_disconnect_now(ENetPeer peer, uint data) {
 
         if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECTED) {
             return;
@@ -2897,11 +2967,12 @@ public static void enet_peer_disconnect_now(ENetPeer *peer, uint data) {
         if (peer.state != ENetPeerState.ENET_PEER_STATE_ZOMBIE && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECTING) {
             enet_peer_reset_queues(peer);
 
-            command.header.command   = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_DISCONNECT | (int)ENET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED;
+            ENetProtocol command = new ENetProtocol();
+            command.header.command   = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_DISCONNECT | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED;
             command.header.channelID = 0xFF;
             command.disconnect.data  = ENET_HOST_TO_NET_32(data);
 
-            enet_peer_queue_outgoing_command(peer, &command, null, 0, 0);
+            enet_peer_queue_outgoing_command(peer, ref command, null, 0, 0);
             enet_host_flush(peer.host);
         }
 
@@ -2916,7 +2987,6 @@ public static void enet_peer_disconnect_now(ENetPeer *peer, uint data) {
      */
     public static void enet_peer_disconnect(ENetPeer peer, uint data) 
     {
-        ENetProtocol command;
 
         if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECTING ||
             peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECTED ||
@@ -2928,6 +2998,7 @@ public static void enet_peer_disconnect_now(ENetPeer *peer, uint data) {
 
         enet_peer_reset_queues(peer);
 
+        ENetProtocol command = new ENetProtocol();
         command.header.command   = (byte)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_DISCONNECT;
         command.header.channelID = 0xFF;
         command.disconnect.data  = ENET_HOST_TO_NET_32(data);
@@ -2952,9 +3023,9 @@ public static void enet_peer_disconnect_now(ENetPeer *peer, uint data) {
 
     public static bool enet_peer_has_outgoing_commands (ENetPeer  peer)
     {
-        if (enet_list_empty (peer.outgoingCommands) &&
-            enet_list_empty (peer.outgoingSendReliableCommands) &&
-            enet_list_empty (peer.sentReliableCommands))
+        if (enet_list_empty (ref peer.outgoingCommands) &&
+            enet_list_empty (ref peer.outgoingSendReliableCommands) &&
+            enet_list_empty (ref peer.sentReliableCommands))
         {
             return false;
         }
@@ -2968,7 +3039,7 @@ public static void enet_peer_disconnect_now(ENetPeer *peer, uint data) {
      *  @remarks An ENET_EVENT_DISCONNECT event will be generated by enet_host_service()
      *  once the disconnection is complete.
      */
-public static void enet_peer_disconnect_later(ENetPeer *peer, uint data) {
+    public static void enet_peer_disconnect_later(ENetPeer peer, uint data) {
         if ((peer.state == ENetPeerState.ENET_PEER_STATE_CONNECTED || peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) &&
             enet_peer_has_outgoing_commands(peer)
         ) {
@@ -2979,34 +3050,33 @@ public static void enet_peer_disconnect_later(ENetPeer *peer, uint data) {
         }
     }
 
-    ENetAcknowledgement *enet_peer_queue_acknowledgement(ENetPeer *peer, const ENetProtocol *command, ushort sentTime) {
-        ENetAcknowledgement *acknowledgement;
+    public static ENetAcknowledgement enet_peer_queue_acknowledgement(ENetPeer peer, ref ENetProtocol command, ushort sentTime) {
 
         if (command.header.channelID < peer.channelCount) {
-            ENetChannel *channel       = &peer.channels[command.header.channelID];
-            ushort reliableWindow = command.header.reliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
-            ushort currentWindow  = channel.incomingReliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
+            ENetChannel channel       = peer.channels[command.header.channelID];
+            ushort reliableWindow = (ushort)(command.header.reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
+            ushort currentWindow  = (ushort)(channel.incomingReliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
 
             if (command.header.reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
-                reliableWindow += ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS;
+                reliableWindow += ENets.ENET_PEER_RELIABLE_WINDOWS;
             }
 
-            if (reliableWindow >= currentWindow + ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS - 1 && reliableWindow <= currentWindow + ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS) {
+            if (reliableWindow >= currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS - 1 && reliableWindow <= currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS) {
                 return null;
             }
         }
 
-        acknowledgement = (ENetAcknowledgement *) enet_malloc(sizeof(ENetAcknowledgement));
+        ENetAcknowledgement acknowledgement = enet_malloc<ENetAcknowledgement>();
         if (acknowledgement == null) {
             return null;
         }
 
-        peer.outgoingDataTotal += sizeof(ENetProtocolAcknowledge);
+        peer.outgoingDataTotal += (uint)Marshal.SizeOf<ENetProtocolAcknowledge>();
 
         acknowledgement.sentTime = sentTime;
-        acknowledgement.command  = *command;
+        acknowledgement.command  = command;
 
-        enet_list_insert(enet_list_end(&peer.acknowledgements), acknowledgement);
+        enet_list_insert(enet_list_end(ref peer.acknowledgements), acknowledgement);
         return acknowledgement;
     }
 
@@ -3062,14 +3132,14 @@ public static void enet_peer_disconnect_later(ENetPeer *peer, uint data) {
         }
 
         if ((outgoingCommand.command.header.command & (byte)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) != 0 && outgoingCommand.packet != null) {
-            enet_list_insert(enet_list_end(peer.outgoingSendReliableCommands), outgoingCommand);
+            enet_list_insert(enet_list_end(ref peer.outgoingSendReliableCommands), outgoingCommand);
         } else {
-            enet_list_insert(enet_list_end(peer.outgoingCommands), outgoingCommand);
+            enet_list_insert(enet_list_end(ref peer.outgoingCommands), outgoingCommand);
         }
     }
 
     public static ENetOutgoingCommand enet_peer_queue_outgoing_command(ENetPeer peer, ref ENetProtocol command, ENetPacket packet, uint offset, ushort length) {
-        ENetOutgoingCommand outgoingCommand = enet_malloc<ENetOutgoingCommand>(1);
+        ENetOutgoingCommand outgoingCommand = enet_malloc<ENetOutgoingCommand>();
 
         if (outgoingCommand == null) {
             return null;
@@ -3087,14 +3157,14 @@ public static void enet_peer_disconnect_later(ENetPeer *peer, uint data) {
         return outgoingCommand;
     }
 
-public static void enet_peer_dispatch_incoming_unreliable_commands(ENetPeer *peer, ENetChannel *channel, ENetIncomingCommand * queuedCommand) {
-        ENetListNode droppedCommand, startCommand, currentCommand;
+    public static void enet_peer_dispatch_incoming_unreliable_commands(ENetPeer peer, ENetChannel channel, ENetIncomingCommand queuedCommand) {
+        ENetListNode<ENetIncomingCommand> droppedCommand, startCommand, currentCommand = null;
 
-        for (droppedCommand = startCommand = currentCommand = enet_list_begin(&channel.incomingUnreliableCommands);
-            currentCommand != enet_list_end(&channel.incomingUnreliableCommands);
+        for (droppedCommand = startCommand = currentCommand = enet_list_begin(ref channel.incomingUnreliableCommands);
+            currentCommand != enet_list_end(ref channel.incomingUnreliableCommands);
             currentCommand = enet_list_next(currentCommand)
         ) {
-            ENetIncomingCommand *incomingCommand = (ENetIncomingCommand *) currentCommand;
+            ENetIncomingCommand incomingCommand =  currentCommand.value;
 
             if ((incomingCommand.command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK) == ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED) {
                 continue;
@@ -3107,11 +3177,11 @@ public static void enet_peer_dispatch_incoming_unreliable_commands(ENetPeer *pee
                 }
 
                 if (startCommand != currentCommand) {
-                    enet_list_move(enet_list_end(&peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
+                    enet_list_move(enet_list_end(ref peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
 
-                    if (!(peer.flags & ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
-                        enet_list_insert(enet_list_end(&peer.host.dispatchQueue), &peer.dispatchList);
-                        peer.flags |= ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
+                    if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
+                        enet_list_insert(enet_list_end(ref peer.host.dispatchQueue), &peer.dispatchList);
+                        peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
                     }
 
                     droppedCommand = currentCommand;
@@ -3119,25 +3189,25 @@ public static void enet_peer_dispatch_incoming_unreliable_commands(ENetPeer *pee
                     droppedCommand = enet_list_previous(currentCommand);
                 }
             } else {
-                ushort reliableWindow = incomingCommand.reliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
-                ushort currentWindow  = channel.incomingReliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
+                ushort reliableWindow = (ushort)(incomingCommand.reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
+                ushort currentWindow  = (ushort)(channel.incomingReliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
 
                 if (incomingCommand.reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
-                    reliableWindow += ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS;
+                    reliableWindow += ENets.ENET_PEER_RELIABLE_WINDOWS;
                 }
 
-                if (reliableWindow >= currentWindow && reliableWindow < currentWindow + ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
+                if (reliableWindow >= currentWindow && reliableWindow < currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
                     break;
                 }
 
                 droppedCommand = enet_list_next(currentCommand);
 
                 if (startCommand != currentCommand) {
-                    enet_list_move(enet_list_end(&peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
+                    enet_list_move(enet_list_end(ref peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
 
-                    if (!(peer.flags & ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
-                        enet_list_insert(enet_list_end(&peer.host.dispatchQueue), &peer.dispatchList);
-                        peer.flags |= ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
+                    if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
+                        enet_list_insert(enet_list_end(ref peer.host.dispatchQueue), peer.dispatchList);
+                        peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
                     }
                 }
             }
@@ -3146,27 +3216,27 @@ public static void enet_peer_dispatch_incoming_unreliable_commands(ENetPeer *pee
         }
 
         if (startCommand != currentCommand) {
-            enet_list_move(enet_list_end(&peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
+            enet_list_move(enet_list_end(ref peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
 
-            if (!(peer.flags & ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
-                enet_list_insert(enet_list_end(&peer.host.dispatchQueue), &peer.dispatchList);
-                peer.flags |= ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
+            if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
+                enet_list_insert(enet_list_end(ref peer.host.dispatchQueue), peer.dispatchList);
+                peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
             }
 
             droppedCommand = currentCommand;
         }
 
-        enet_peer_remove_incoming_commands(peer, &channel.incomingUnreliableCommands, enet_list_begin(&channel.incomingUnreliableCommands), droppedCommand, queuedCommand);
+        enet_peer_remove_incoming_commands(peer, &channel.incomingUnreliableCommands, enet_list_begin(ref channel.incomingUnreliableCommands), droppedCommand, queuedCommand);
     }
 
-public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer, ENetChannel *channel, ENetIncomingCommand *queuedCommand) {
-        ENetListNode currentCommand;
+    public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer peer, ENetChannel channel, ENetIncomingCommand queuedCommand) {
+        ENetListNode<ENetIncomingCommand> currentCommand;
 
-        for (currentCommand = enet_list_begin(&channel.incomingReliableCommands);
-            currentCommand != enet_list_end(&channel.incomingReliableCommands);
+        for (currentCommand = enet_list_begin(ref channel.incomingReliableCommands);
+            currentCommand != enet_list_end(ref channel.incomingReliableCommands);
             currentCommand = enet_list_next(currentCommand)
         ) {
-            ENetIncomingCommand *incomingCommand = (ENetIncomingCommand *) currentCommand;
+            ENetIncomingCommand incomingCommand = currentCommand.value;
 
             if (incomingCommand.fragmentsRemaining > 0 || incomingCommand.reliableSequenceNumber != (ushort) (channel.incomingReliableSequenceNumber + 1)) {
                 break;
@@ -3174,37 +3244,39 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
 
             channel.incomingReliableSequenceNumber = incomingCommand.reliableSequenceNumber;
 
-            if (incomingCommand.fragmentCount > 0) {
-                channel.incomingReliableSequenceNumber += incomingCommand.fragmentCount - 1;
+            if (incomingCommand.fragmentCount > 0)
+            {
+                channel.incomingReliableSequenceNumber += (ushort)(incomingCommand.fragmentCount - 1);
             }
         }
 
-        if (currentCommand == enet_list_begin(&channel.incomingReliableCommands)) {
+        if (currentCommand == enet_list_begin(ref channel.incomingReliableCommands)) {
             return;
         }
 
         channel.incomingUnreliableSequenceNumber = 0;
-        enet_list_move(enet_list_end(&peer.dispatchedCommands), enet_list_begin(&channel.incomingReliableCommands), enet_list_previous(currentCommand));
+        enet_list_move(enet_list_end(ref peer.dispatchedCommands), enet_list_begin(ref channel.incomingReliableCommands), enet_list_previous(currentCommand));
 
-        if (!(peer.flags & ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
-            enet_list_insert(enet_list_end(&peer.host.dispatchQueue), &peer.dispatchList);
-            peer.flags |= ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
+        if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH)) {
+            enet_list_insert(enet_list_end(ref peer.host.dispatchQueue), &peer.dispatchList);
+            peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
         }
 
-        if (!enet_list_empty(&channel.incomingUnreliableCommands)) {
+        if (!enet_list_empty(ref channel.incomingUnreliableCommands)) {
             enet_peer_dispatch_incoming_unreliable_commands(peer, channel, queuedCommand);
         }
     }
+    
+    private static ENetIncomingCommand dummyCommand;
 
-    ENetIncomingCommand * enet_peer_queue_incoming_command(ENetPeer *peer, const ENetProtocol *command, const void *data, ulong dataLength, uint flags, uint fragmentCount) {
-        static ENetIncomingCommand dummyCommand;
+    public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, byte[] data, ulong dataLength, uint flags, uint fragmentCount) {
 
-        ENetChannel *channel = &peer.channels[command.header.channelID];
+        ENetChannel channel = peer.channels[command.header.channelID];
         uint unreliableSequenceNumber = 0, reliableSequenceNumber = 0;
         ushort reliableWindow, currentWindow;
-        ENetIncomingCommand *incomingCommand;
-        ENetListNode currentCommand;
-        ENetPacket *packet = null;
+        ENetIncomingCommand incomingCommand = null;
+        ENetListNode<ENetIncomingCommand> currentCommand;
+        ENetPacket packet = null;
 
         if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
             goto discardCommand;
@@ -3212,14 +3284,14 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
 
         if ((command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK) != ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED) {
             reliableSequenceNumber = command.header.reliableSequenceNumber;
-            reliableWindow         = reliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
-            currentWindow = channel.incomingReliableSequenceNumber / ENetPeerConst.ENET_PEER_RELIABLE_WINDOW_SIZE;
+            reliableWindow         = reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
+            currentWindow = channel.incomingReliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
 
             if (reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
-                reliableWindow += ENetPeerConst.ENET_PEER_RELIABLE_WINDOWS;
+                reliableWindow += ENets.ENET_PEER_RELIABLE_WINDOWS;
             }
 
-            if (reliableWindow < currentWindow || reliableWindow >= currentWindow + ENetPeerConst.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
+            if (reliableWindow < currentWindow || reliableWindow >= currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
                 goto discardCommand;
             }
         }
@@ -3231,11 +3303,12 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
                     goto discardCommand;
                 }
 
-                for (currentCommand = enet_list_previous(enet_list_end(&channel.incomingReliableCommands));
-                    currentCommand != enet_list_end(&channel.incomingReliableCommands);
+                for (currentCommand = enet_list_previous(enet_list_end(ref channel.incomingReliableCommands));
+                    currentCommand != enet_list_end(ref channel.incomingReliableCommands);
                     currentCommand = enet_list_previous(currentCommand)
-                ) {
-                    incomingCommand = (ENetIncomingCommand *) currentCommand;
+                )
+                {
+                    incomingCommand = currentCommand.value;
 
                     if (reliableSequenceNumber >= channel.incomingReliableSequenceNumber) {
                         if (incomingCommand.reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
@@ -3263,11 +3336,12 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
                     goto discardCommand;
                 }
 
-                for (currentCommand = enet_list_previous(enet_list_end(&channel.incomingUnreliableCommands));
-                    currentCommand != enet_list_end(&channel.incomingUnreliableCommands);
+                for (currentCommand = enet_list_previous(enet_list_end(ref channel.incomingUnreliableCommands));
+                    currentCommand != enet_list_end(ref channel.incomingUnreliableCommands);
                     currentCommand = enet_list_previous(currentCommand)
-                ) {
-                    incomingCommand = (ENetIncomingCommand *) currentCommand;
+                )
+                {
+                    incomingCommand = currentCommand.value;
 
                     if ((command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK) == ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED) {
                         continue;
@@ -3300,7 +3374,7 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
                 break;
 
             case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED:
-                currentCommand = enet_list_end(&channel.incomingUnreliableCommands);
+                currentCommand = enet_list_end(ref channel.incomingUnreliableCommands);
                 break;
 
             default:
@@ -3316,22 +3390,24 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
             goto notifyError;
         }
 
-        incomingCommand = (ENetIncomingCommand *) enet_malloc(sizeof(ENetIncomingCommand));
+        incomingCommand = enet_malloc<ENetIncomingCommand>();
         if (incomingCommand == null) {
             goto notifyError;
         }
 
         incomingCommand.reliableSequenceNumber     = command.header.reliableSequenceNumber;
-        incomingCommand.unreliableSequenceNumber   = unreliableSequenceNumber & 0xFFFF;
-        incomingCommand.command                    = *command;
+        incomingCommand.unreliableSequenceNumber = (ushort)(unreliableSequenceNumber & 0xFFFF);
+        incomingCommand.command                    = command;
         incomingCommand.fragmentCount              = fragmentCount;
         incomingCommand.fragmentsRemaining         = fragmentCount;
         incomingCommand.packet                     = packet;
         incomingCommand.fragments                  = null;
 
-        if (fragmentCount > 0) {
-            if (fragmentCount <= ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT) {
-                incomingCommand.fragments = (uint *) enet_malloc((fragmentCount + 31) / 32 * sizeof(uint));
+        if (fragmentCount > 0) 
+        {
+            if (fragmentCount <= ENets.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT)
+            {
+                incomingCommand.fragments = enet_malloc<uint>((fragmentCount + 31) / 32);
             }
 
             if (incomingCommand.fragments == null) {
@@ -3371,7 +3447,7 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
             callbacks.packet_destroy(packet);
         }
 
-        return &dummyCommand;
+        return dummyCommand;
 
     notifyError:
         if (packet != null && packet.referenceCount == 0) {
@@ -3381,11 +3457,11 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
         return null;
     } /* enet_peer_queue_incoming_command */
 
-// =======================================================================//
-// !
-// ! Host
-// !
-// =======================================================================//
+    // =======================================================================//
+    // !
+    // ! Host
+    // !
+    // =======================================================================//
 
     /** Creates a host for communicating to peers.
      *
@@ -3402,33 +3478,39 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
      *  the window size of a connection which limits the amount of reliable packets that may be in transit
      *  at any given time.
      */
-    ENetHost * enet_host_create(const ENetAddress *address, ulong peerCount, ulong channelLimit, uint incomingBandwidth, uint outgoingBandwidth) {
-        ENetHost *host;
-        ENetPeer *currentPeer;
+    public static ENetHost enet_host_create(ref ENetAddress address, ulong peerCount, ulong channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
+    {
+        ENetHost host = null;
+        ENetPeer currentPeer = null;
 
-        if (peerCount > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PEER_ID) {
+        if (peerCount > ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID) {
             return null;
         }
 
-        host = (ENetHost *) enet_malloc(sizeof(ENetHost));
-        if (host == null) { return null; }
-        memset(host, 0, sizeof(ENetHost));
+        host = enet_malloc<ENetHost>();
+        if (host == null)
+        {
+            return null;
+        }
+        // todo : @ikpil check
+        //memset(host, 0, sizeof(ENetHost));
 
-        host.peers = (ENetPeer *) enet_malloc(peerCount * sizeof(ENetPeer));
+        host.peers = enet_malloc<ENetPeer>(peerCount);
         if (host.peers == null) {
             enet_free(host);
             return null;
         }
 
-        memset(host.peers, 0, peerCount * sizeof(ENetPeer));
+        // todo : @ikpil check
+        //memset(host.peers, 0, peerCount * sizeof(ENetPeer));
 
-        host.socket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
-        if (host.socket != ENET_SOCKET_NULL) {
-            enet_socket_set_option (host.socket, ENET_SOCKOPT_IPV6_V6ONLY, 0);
+        host.socket = enet_socket_create(ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM);
+        if (host.socket != null) {
+            enet_socket_set_option (host.socket, ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY, 0);
         }
 
-        if (host.socket == ENET_SOCKET_NULL || (address != null && enet_socket_bind(host.socket, address) < 0)) {
-            if (host.socket != ENET_SOCKET_NULL) {
+        if (host.socket == null || (address != null && enet_socket_bind(host.socket, address) < 0)) {
+            if (host.socket != null) {
                 enet_socket_destroy(host.socket);
             }
 
@@ -3438,18 +3520,18 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
             return null;
         }
 
-        enet_socket_set_option(host.socket, ENET_SOCKOPT_NONBLOCK, 1);
-        enet_socket_set_option(host.socket, ENET_SOCKOPT_BROADCAST, 1);
-        enet_socket_set_option(host.socket, ENET_SOCKOPT_RCVBUF, ENET_HOST_RECEIVE_BUFFER_SIZE);
-        enet_socket_set_option(host.socket, ENET_SOCKOPT_SNDBUF, ENET_HOST_SEND_BUFFER_SIZE);
-        enet_socket_set_option(host.socket, ENET_SOCKOPT_IPV6_V6ONLY, 0);
+        enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_NONBLOCK, 1);
+        enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_BROADCAST, 1);
+        enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_RCVBUF, ENets.ENET_HOST_RECEIVE_BUFFER_SIZE);
+        enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_SNDBUF, ENets.ENET_HOST_SEND_BUFFER_SIZE);
+        enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY, 0);
 
-        if (address != null && enet_socket_get_address(host.socket, &host.address) < 0) {
+        if (address != null && enet_socket_get_address(host.socket, ref host.address) < 0) {
             host.address = *address;
         }
 
-        if (!channelLimit || channelLimit > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
-            channelLimit = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
+        if (!channelLimit || channelLimit > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
+            channelLimit = ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
         }
 
         host.randomSeed                    = (uint) ((uintptr_t) host % UINT32_MAX);
@@ -3460,7 +3542,7 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
         host.outgoingBandwidth             = outgoingBandwidth;
         host.bandwidthThrottleEpoch        = 0;
         host.recalculateBandwidthLimits    = 0;
-        host.mtu                           = ENET_HOST_DEFAULT_MTU;
+        host.mtu                           = ENets.ENET_HOST_DEFAULT_MTU;
         host.peerCount                     = peerCount;
         host.commandCount                  = 0;
         host.bufferCount                   = 0;
@@ -3476,16 +3558,16 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
         host.totalQueued                   = 0;
         host.connectedPeers                = 0;
         host.bandwidthLimitedPeers         = 0;
-        host.duplicatePeers                = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PEER_ID;
-        host.maximumPacketSize             = ENET_HOST_DEFAULT_MAXIMUM_PACKET_SIZE;
-        host.maximumWaitingData            = ENET_HOST_DEFAULT_MAXIMUM_WAITING_DATA;
+        host.duplicatePeers                = ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID;
+        host.maximumPacketSize             = ENets.ENET_HOST_DEFAULT_MAXIMUM_PACKET_SIZE;
+        host.maximumWaitingData            = ENets.ENET_HOST_DEFAULT_MAXIMUM_WAITING_DATA;
         host.compressor.context            = null;
         host.compressor.compress           = null;
         host.compressor.decompress         = null;
         host.compressor.destroy            = null;
         host.intercept                     = null;
 
-        enet_list_clear(&host.dispatchQueue);
+        enet_list_clear(ref host.dispatchQueue);
 
         for (currentPeer = host.peers; currentPeer < &host.peers[host.peerCount]; ++currentPeer) {
             currentPeer.host = host;
@@ -3493,11 +3575,11 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
             currentPeer.outgoingSessionID = currentPeer.incomingSessionID = 0xFF;
             currentPeer.data = null;
 
-            enet_list_clear(&currentPeer.acknowledgements);
-            enet_list_clear(&currentPeer.sentReliableCommands);
-            enet_list_clear(&currentPeer.outgoingCommands);
-            enet_list_clear(&currentPeer.outgoingSendReliableCommands);
-            enet_list_clear(&currentPeer.dispatchedCommands);
+            enet_list_clear(ref currentPeer.acknowledgements);
+            enet_list_clear(ref currentPeer.sentReliableCommands);
+            enet_list_clear(ref currentPeer.outgoingCommands);
+            enet_list_clear(ref currentPeer.outgoingSendReliableCommands);
+            enet_list_clear(ref currentPeer.dispatchedCommands);
 
             enet_peer_reset(currentPeer);
         }
@@ -3508,8 +3590,7 @@ public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer *peer,
     /** Destroys the host and all resources associated with it.
      *  @param host pointer to the host to destroy
      */
-public static void enet_host_destroy(ENetHost *host) {
-        ENetPeer *currentPeer;
+    public static void enet_host_destroy(ENetHost host) {
 
         if (host == null) {
             return;
@@ -3517,19 +3598,20 @@ public static void enet_host_destroy(ENetHost *host) {
 
         enet_socket_destroy(host.socket);
 
-        for (currentPeer = host.peers; currentPeer < &host.peers[host.peerCount]; ++currentPeer) {
-            enet_peer_reset(currentPeer);
+        for (int currentPeer = 0; currentPeer < host.peerCount; ++currentPeer) {
+            ENetPeer curPeer = host.peers[currentPeer];
+            enet_peer_reset(curPeer);
         }
 
-        if (host.compressor.context != null && host.compressor.destroy) {
-            (*host.compressor.destroy)(host.compressor.context);
+        if (host.compressor.context != null && host.compressor.CompressorDestroy) {
+            host.compressor.CompressorDestroy(host.compressor.context);
         }
 
         enet_free(host.peers);
         enet_free(host);
     }
 
-    uint enet_host_random(ENetHost * host) {
+    public static uint enet_host_random(ENetHost host) {
         /* Mulberry32 by Tommy Ettinger */
         uint n = (host.randomSeed += 0x6D2B79F5U);
         n = (n ^ (n >> 15)) * (n | 1U);
@@ -3546,63 +3628,69 @@ public static void enet_host_destroy(ENetHost *host) {
      *  @remarks The peer returned will have not completed the connection until enet_host_service()
      *  notifies of an ENET_EVENT_TYPE_CONNECT event for the peer.
      */
-    ENetPeer * enet_host_connect(ENetHost *host, const ENetAddress *address, ulong channelCount, uint data) {
-        ENetPeer *currentPeer;
-        ENetChannel *channel;
-        ENetProtocol command;
+    public static ENetPeer enet_host_connect(ENetHost host, ref ENetAddress address, int channelCount, uint data) {
+        ENetPeer currentPeer = null;
+        ENetChannel channel = null;
 
-        if (channelCount < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT) {
-            channelCount = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT;
-        } else if (channelCount > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
-            channelCount = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
+        if (channelCount < ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT) {
+            channelCount = ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT;
+        } else if (channelCount > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
+            channelCount = ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
         }
 
-        for (currentPeer = host.peers; currentPeer < &host.peers[host.peerCount]; ++currentPeer) {
+        int currentPeerIdx = 0;
+        for (currentPeerIdx = 0; currentPeerIdx < host.peerCount; ++currentPeerIdx)
+        {
+            currentPeer = host.peers[currentPeerIdx];
             if (currentPeer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECTED) {
                 break;
             }
         }
 
-        if (currentPeer >= &host.peers[host.peerCount]) {
+        if (currentPeerIdx >= host.peerCount) {
             return null;
         }
 
-        currentPeer.channels = (ENetChannel *) enet_malloc(channelCount * sizeof(ENetChannel));
+        currentPeer.channels = enet_malloc<ENetChannel>(channelCount);
         if (currentPeer.channels == null) {
             return null;
         }
 
         currentPeer.channelCount = channelCount;
         currentPeer.state        = ENetPeerState.ENET_PEER_STATE_CONNECTING;
-        currentPeer.address      = *address;
+        currentPeer.address      = address;
         currentPeer.connectID    = enet_host_random(host);
         currentPeer.mtu          = host.mtu;
 
         if (host.outgoingBandwidth == 0) {
-            currentPeer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            currentPeer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         } else {
-            currentPeer.windowSize = (host.outgoingBandwidth / ENetPeerConst.ENET_PEER_WINDOW_SIZE_SCALE) * ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            currentPeer.windowSize = (host.outgoingBandwidth / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
         }
 
-        if (currentPeer.windowSize < ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-            currentPeer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
-        } else if (currentPeer.windowSize > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-            currentPeer.windowSize = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+        if (currentPeer.windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+            currentPeer.windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+        } else if (currentPeer.windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+            currentPeer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
         }
 
-        for (channel = currentPeer.channels; channel < &currentPeer.channels[channelCount]; ++channel) {
+        int channelIdx = 0;
+        for (channelIdx = 0; channelIdx < channelCount; ++channelIdx)
+        {
+            channel = currentPeer.channels[channelIdx];
             channel.outgoingReliableSequenceNumber   = 0;
             channel.outgoingUnreliableSequenceNumber = 0;
             channel.incomingReliableSequenceNumber   = 0;
             channel.incomingUnreliableSequenceNumber = 0;
 
-            enet_list_clear(&channel.incomingReliableCommands);
-            enet_list_clear(&channel.incomingUnreliableCommands);
+            enet_list_clear(ref channel.incomingReliableCommands);
+            enet_list_clear(ref channel.incomingUnreliableCommands);
 
             channel.usedReliableWindows = 0;
             memset(channel.reliableWindows, 0, sizeof(channel.reliableWindows));
         }
 
+        ENetProtocol command = new ENetProtocol();
         command.header.command                     = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_CONNECT | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
         command.header.channelID                   = 0xFF;
         command.connect.outgoingPeerID             = ENET_HOST_TO_NET_16(currentPeer.incomingPeerID);
@@ -3610,7 +3698,7 @@ public static void enet_host_destroy(ENetHost *host) {
         command.connect.outgoingSessionID          = currentPeer.outgoingSessionID;
         command.connect.mtu                        = ENET_HOST_TO_NET_32(currentPeer.mtu);
         command.connect.windowSize                 = ENET_HOST_TO_NET_32(currentPeer.windowSize);
-        command.connect.channelCount               = ENET_HOST_TO_NET_32(channelCount);
+        command.connect.channelCount               = ENET_HOST_TO_NET_32((uint)channelCount);
         command.connect.incomingBandwidth          = ENET_HOST_TO_NET_32(host.incomingBandwidth);
         command.connect.outgoingBandwidth          = ENET_HOST_TO_NET_32(host.outgoingBandwidth);
         command.connect.packetThrottleInterval     = ENET_HOST_TO_NET_32(currentPeer.packetThrottleInterval);
@@ -3619,7 +3707,7 @@ public static void enet_host_destroy(ENetHost *host) {
         command.connect.connectID                  = currentPeer.connectID;
         command.connect.data                       = ENET_HOST_TO_NET_32(data);
 
-        enet_peer_queue_outgoing_command(currentPeer, &command, null, 0, 0);
+        enet_peer_queue_outgoing_command(currentPeer, ref command, null, 0, 0);
 
         return currentPeer;
     } /* enet_host_connect */
@@ -3629,10 +3717,12 @@ public static void enet_host_destroy(ENetHost *host) {
      *  @param channelID channel on which to broadcast
      *  @param packet packet to broadcast
      */
-    public static void enet_host_broadcast(ENetHost *host, byte channelID, ENetPacket *packet) {
-        ENetPeer *currentPeer;
+    public static void enet_host_broadcast(ENetHost host, byte channelID, ENetPacket packet) {
+        ENetPeer currentPeer = null;
 
-        for (currentPeer = host.peers; currentPeer < &host.peers[host.peerCount]; ++currentPeer) {
+        for (int currentPeerIdx = 0; currentPeerIdx < host.peerCount; ++currentPeerIdx)
+        {
+            currentPeer = host.peers[currentPeerIdx];
             if (currentPeer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED) {
                 continue;
             }
@@ -3654,11 +3744,11 @@ public static void enet_host_destroy(ENetHost *host) {
      *  @retval <0 error
      *  @sa enet_socket_send
      */
-    public static int enet_host_send_raw(ENetHost *host, const ENetAddress* address, byte* data, ulong dataLength) {
-        ENetBuffer buffer;
+    public static int enet_host_send_raw(ENetHost host, ref ENetAddress address, byte[] data, ulong dataLength) {
+        ENetBuffer buffer = new ENetBuffer();
         buffer.data = data;
         buffer.dataLength = dataLength;
-        return enet_socket_send(host.socket, address, &buffer, 1);
+        return enet_socket_send(host.socket, ref address, ref buffer, 1);
     }
 
     /** Sends raw data to specified address with extended arguments. Allows to send only part of data, handy for other programming languages.
@@ -3672,18 +3762,18 @@ public static void enet_host_destroy(ENetHost *host) {
      *  @retval <0 error
      *  @sa enet_socket_send
      */
-    public static int enet_host_send_raw_ex(ENetHost *host, const ENetAddress* address, byte* data, ulong skipBytes, ulong bytesToSend) {
+    public static int enet_host_send_raw_ex(ENetHost host, ref ENetAddress address, ArraySegment<byte> data, int skipBytes, ulong bytesToSend) {
         ENetBuffer buffer;
-        buffer.data = data + skipBytes;
+        buffer.data = data.Slice(skipBytes);
         buffer.dataLength = bytesToSend;
-        return enet_socket_send(host.socket, address, &buffer, 1);
+        return enet_socket_send(host.socket, ref address, ref buffer, 1);
     }
 
     /** Sets intercept callback for the host.
      *  @param host host to set a callback
      *  @param callback intercept callback
      */
-    public static void enet_host_set_intercept(ENetHost *host, const ENetInterceptCallback callback) {
+    public static void enet_host_set_intercept(ENetHost host, ENetInterceptCallback callback) {
         host.intercept = callback;
     }
 
@@ -3691,13 +3781,13 @@ public static void enet_host_destroy(ENetHost *host) {
      *  @param host host to enable or disable compression for
      *  @param compressor callbacks for for the packet compressor; if null, then compression is disabled
      */
-    public static void enet_host_compress(ENetHost *host, const ENetCompressor *compressor) {
-        if (host.compressor.context != null && host.compressor.destroy) {
-            (*host.compressor.destroy)(host.compressor.context);
+    public static void enet_host_compress(ENetHost host, ENetCompressor compressor) {
+        if (host.compressor.context != null && null != host.compressor.destroy) {
+            host.compressor.destroy(host.compressor.context);
         }
 
-        if (compressor) {
-            host.compressor = *compressor;
+        if (null != compressor) {
+            host.compressor = compressor;
         } else {
             host.compressor.context = null;
         }
@@ -3707,9 +3797,9 @@ public static void enet_host_destroy(ENetHost *host) {
      *  @param host host to limit
      *  @param channelLimit the maximum number of channels allowed; if 0, then this is equivalent to ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT
      */
-    public static void enet_host_channel_limit(ENetHost *host, ulong channelLimit) {
-        if (!channelLimit || channelLimit > ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
-            channelLimit = ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
+    public static void enet_host_channel_limit(ENetHost host, ulong channelLimit) {
+        if (0 >= channelLimit || channelLimit > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
+            channelLimit = ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
         }
         host.channelLimit = channelLimit;
     }
@@ -3721,26 +3811,25 @@ public static void enet_host_destroy(ENetHost *host) {
      *  @remarks the incoming and outgoing bandwidth parameters are identical in function to those
      *  specified in enet_host_create().
      */
-    public static void enet_host_bandwidth_limit(ENetHost *host, uint incomingBandwidth, uint outgoingBandwidth) {
+    public static void enet_host_bandwidth_limit(ENetHost host, uint incomingBandwidth, uint outgoingBandwidth) {
         host.incomingBandwidth = incomingBandwidth;
         host.outgoingBandwidth = outgoingBandwidth;
         host.recalculateBandwidthLimits = 1;
     }
 
-    public static void enet_host_bandwidth_throttle(ENetHost *host) {
+    public static void enet_host_bandwidth_throttle(ENetHost host) {
         uint timeCurrent       = enet_time_get();
         uint elapsedTime       = timeCurrent - host.bandwidthThrottleEpoch;
         uint peersRemaining    = (uint) host.connectedPeers;
-        uint dataTotal         = ~0;
-        uint bandwidth         = ~0;
+        uint dataTotal         = uint.MaxValue;
+        uint bandwidth         = uint.MaxValue;
         uint throttle          = 0;
         uint bandwidthLimit    = 0;
 
         int needsAdjustment = host.bandwidthLimitedPeers > 0 ? 1 : 0;
-        ENetPeer *peer;
-        ENetProtocol command;
+        ENetPeer peer;
 
-        if (elapsedTime < ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL) {
+        if (elapsedTime < ENets.ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL) {
             return;
         }
 
@@ -3758,7 +3847,9 @@ public static void enet_host_destroy(ENetHost *host) {
             dataTotal = 0;
             bandwidth = (host.outgoingBandwidth * elapsedTime) / 1000;
 
-            for (peer = host.peers; peer < &host.peers[host.peerCount]; ++peer) {
+            for (int peerIdx = 0; peerIdx < host.peerCount; ++peerIdx)
+            {
+                peer = host.peers[peerIdx];
                 if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
                     continue;
                 }
@@ -3771,12 +3862,14 @@ public static void enet_host_destroy(ENetHost *host) {
             needsAdjustment = 0;
 
             if (dataTotal <= bandwidth) {
-                throttle = ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE;
+                throttle = ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
             } else {
-                throttle = (bandwidth * ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
+                throttle = (bandwidth * ENets.ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
             }
 
-            for (peer = host.peers; peer < &host.peers[host.peerCount]; ++peer) {
+            for (int peerIdx = 0; peerIdx < host.peerCount; ++peerIdx)
+            {
+                peer = host.peers[peerIdx];
                 uint peerBandwidth;
 
                 if ((peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) ||
@@ -3787,11 +3880,11 @@ public static void enet_host_destroy(ENetHost *host) {
                 }
 
                 peerBandwidth = (peer.incomingBandwidth * elapsedTime) / 1000;
-                if ((throttle * peer.outgoingDataTotal) / ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE <= peerBandwidth) {
+                if ((throttle * peer.outgoingDataTotal) / ENets.ENET_PEER_PACKET_THROTTLE_SCALE <= peerBandwidth) {
                     continue;
                 }
 
-                peer.packetThrottleLimit = (peerBandwidth * ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE) / peer.outgoingDataTotal;
+                peer.packetThrottleLimit = (peerBandwidth * ENets.ENET_PEER_PACKET_THROTTLE_SCALE) / peer.outgoingDataTotal;
 
                 if (peer.packetThrottleLimit == 0) {
                     peer.packetThrottleLimit = 1;
@@ -3815,15 +3908,14 @@ public static void enet_host_destroy(ENetHost *host) {
 
         if (peersRemaining > 0) {
             if (dataTotal <= bandwidth) {
-                throttle = ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE;
+                throttle = ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
             } else {
-                throttle = (bandwidth * ENetPeerConst.ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
+                throttle = (bandwidth * ENets.ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
             }
 
-            for (peer = host.peers;
-              peer < &host.peers[host.peerCount];
-              ++peer)
+            for (int peerIdx = 0; peerIdx < host.peerCount; ++peerIdx)
             {
+                peer = host.peers[peerIdx];
                 if ((peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) || peer.outgoingBandwidthThrottleEpoch == timeCurrent) {
                     continue;
                 }
@@ -3839,7 +3931,7 @@ public static void enet_host_destroy(ENetHost *host) {
             }
         }
 
-        if (host.recalculateBandwidthLimits) {
+        if (0 != host.recalculateBandwidthLimits) {
             host.recalculateBandwidthLimits = 0;
 
             peersRemaining  = (uint) host.connectedPeers;
@@ -3853,7 +3945,9 @@ public static void enet_host_destroy(ENetHost *host) {
                     needsAdjustment = 0;
                     bandwidthLimit  = bandwidth / peersRemaining;
 
-                    for (peer = host.peers; peer < &host.peers[host.peerCount]; ++peer) {
+                    for (int peerIdx = 0; peerIdx < host.peerCount; ++peerIdx)
+                    {
+                        peer = host.peers[peerIdx];
                         if ((peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) ||
                             peer.incomingBandwidthThrottleEpoch == timeCurrent
                         ) {
@@ -3873,11 +3967,14 @@ public static void enet_host_destroy(ENetHost *host) {
                 }
             }
 
-            for (peer = host.peers; peer < &host.peers[host.peerCount]; ++peer) {
+            for (int peerIdx = 0; peerIdx < host.peerCount; ++peerIdx)
+            {
+                peer = host.peers[peerIdx];
                 if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) {
                     continue;
                 }
 
+                ENetProtocol command = new ENetProtocol();
                 command.header.command   = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_BANDWIDTH_LIMIT | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
                 command.header.channelID = 0xFF;
                 command.bandwidthLimit.outgoingBandwidth = ENET_HOST_TO_NET_32(host.outgoingBandwidth);
@@ -3888,93 +3985,18 @@ public static void enet_host_destroy(ENetHost *host) {
                     command.bandwidthLimit.incomingBandwidth = ENET_HOST_TO_NET_32(bandwidthLimit);
                 }
 
-                enet_peer_queue_outgoing_command(peer, &command, null, 0, 0);
+                enet_peer_queue_outgoing_command(peer, ref command, null, 0, 0);
             }
         }
     } /* enet_host_bandwidth_throttle */
 
-// =======================================================================//
-// !
-// ! Time
-// !
-// =======================================================================//
-
-    #ifdef _WIN32
-        static LARGE_INTEGER getFILETIMEoffset() {
-            SYSTEMTIME s;
-            FILETIME f;
-            LARGE_INTEGER t;
-
-            s.wYear = 1970;
-            s.wMonth = 1;
-            s.wDay = 1;
-            s.wHour = 0;
-            s.wMinute = 0;
-            s.wSecond = 0;
-            s.wMilliseconds = 0;
-            SystemTimeToFileTime(&s, &f);
-            t.QuadPart = f.dwHighDateTime;
-            t.QuadPart <<= 32;
-            t.QuadPart |= f.dwLowDateTime;
-            return (t);
-        }
-        int clock_gettime(int X, struct timespec *tv) {
-            (void)X;
-            LARGE_INTEGER t;
-            FILETIME f;
-            double microseconds;
-            static LARGE_INTEGER offset;
-            static double frequencyToMicroseconds;
-            public static int initialized = 0;
-            static BOOL usePerformanceCounter = 0;
-
-            if (!initialized) {
-                LARGE_INTEGER performanceFrequency;
-                initialized = 1;
-                usePerformanceCounter = QueryPerformanceFrequency(&performanceFrequency);
-                if (usePerformanceCounter) {
-                    QueryPerformanceCounter(&offset);
-                    frequencyToMicroseconds = (double)performanceFrequency.QuadPart / 1000000.;
-                } else {
-                    offset = getFILETIMEoffset();
-                    frequencyToMicroseconds = 10.;
-                }
-            }
-            if (usePerformanceCounter) {
-                QueryPerformanceCounter(&t);
-            } else {
-                GetSystemTimeAsFileTime(&f);
-                t.QuadPart = f.dwHighDateTime;
-                t.QuadPart <<= 32;
-                t.QuadPart |= f.dwLowDateTime;
-            }
-
-            t.QuadPart -= offset.QuadPart;
-            microseconds = (double)t.QuadPart / frequencyToMicroseconds;
-            t.QuadPart = (LONGLONG)microseconds;
-            tv.tv_sec = (long)(t.QuadPart / 1000000);
-            tv.tv_nsec = t.QuadPart % 1000000 * 1000;
-            return (0);
-        }
-    #elif __APPLE__ && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
-        #define CLOCK_MONOTONIC 0
-
-        int clock_gettime(int X, struct timespec *ts) {
-            clock_serv_t cclock;
-            mach_timespec_t mts;
-
-            host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
-            clock_get_time(cclock, &mts);
-            mach_port_deallocate(mach_task_self(), cclock);
-
-            ts.tv_sec = mts.tv_sec;
-            ts.tv_nsec = mts.tv_nsec;
-
-            return 0;
-        }
-    #endif
-
-    uint enet_time_get() {
+    // =======================================================================//
+    // !
+    // ! Time
+    // !
+    // =======================================================================//
+    public static uint enet_time_get() 
+    {
         // TODO enet uses 32 bit timestamps. We should modify it to use
         // 64 bit timestamps, but this is not trivial since we'd end up
         // changing half the structs in enet. For now, retain 32 bits, but
@@ -4143,578 +4165,10 @@ public static void enet_host_destroy(ENetHost *host) {
         return enet_address_get_host_ip_new(address, name, nameLength);
     } /* enet_address_get_host_new */
 
-// =======================================================================//
-// !
-// ! Platform Specific (Unix)
-// !
-// =======================================================================//
 
-    #ifndef _WIN32
-
-        #if defined(__MINGW32__) && defined(Math.MinGW_COMPAT)
-        // inet_ntop/inet_pton for MinGW from http://mingw-users.1079350.n2.nabble.com/IPv6-getaddrinfo-amp-inet-ntop-td5891996.html
-        const char *inet_ntop(int af, const void *src, char *dst, socklen_t cnt) {
-            if (af == AF_INET) {
-                struct sockaddr_in in;
-                memset(&in, 0, sizeof(in));
-                in.sin_family = AF_INET;
-                memcpy(&in.sin_addr, src, sizeof(struct in_addr));
-                getnameinfo((struct sockaddr *)&in, sizeof(struct sockaddr_in), dst, cnt, null, 0, NI_NUMERICHOST);
-                return dst;
-            }
-            else if (af == AF_INET6) {
-                struct sockaddr_in6 in;
-                memset(&in, 0, sizeof(in));
-                in.sin6_family = AF_INET6;
-                memcpy(&in.sin6_addr, src, sizeof(struct in_addr6));
-                getnameinfo((struct sockaddr *)&in, sizeof(struct sockaddr_in6), dst, cnt, null, 0, NI_NUMERICHOST);
-                return dst;
-            }
-
-            return null;
-        }
-
-        #define NS_INADDRSZ  4
-        #define NS_IN6ADDRSZ 16
-        #define NS_INT16SZ   2
-
-        int inet_pton4(const char *src, char *dst) {
-            uint8_t tmp[NS_INADDRSZ], *tp;
-
-            int saw_digit = 0;
-            int octets = 0;
-            *(tp = tmp) = 0;
-
-            int ch;
-            while ((ch = *src++) != '\0')
-            {
-                if (ch >= '0' && ch <= '9')
-                {
-                    uint32_t n = *tp * 10 + (ch - '0');
-
-                    if (saw_digit && *tp == 0)
-                        return 0;
-
-                    if (n > 255)
-                        return 0;
-
-                    *tp = n;
-                    if (!saw_digit)
-                    {
-                        if (++octets > 4)
-                            return 0;
-                        saw_digit = 1;
-                    }
-                }
-                else if (ch == '.' && saw_digit)
-                {
-                    if (octets == 4)
-                        return 0;
-                    *++tp = 0;
-                    saw_digit = 0;
-                }
-                else
-                    return 0;
-            }
-            if (octets < 4)
-                return 0;
-
-            memcpy(dst, tmp, NS_INADDRSZ);
-
-            return 1;
-        }
-
-        int inet_pton6(const char *src, char *dst) {
-            static const char xdigits[] = "0123456789abcdef";
-            uint8_t tmp[NS_IN6ADDRSZ];
-
-            uint8_t *tp = (uint8_t*) memset(tmp, '\0', NS_IN6ADDRSZ);
-            uint8_t *endp = tp + NS_IN6ADDRSZ;
-            uint8_t *colonp = null;
-
-            /* Leading :: requires some special handling. */
-            if (*src == ':')
-            {
-                if (*++src != ':')
-                    return 0;
-            }
-
-            const char *curtok = src;
-            int saw_xdigit = 0;
-            uint32_t val = 0;
-            int ch;
-            while ((ch = tolower(*src++)) != '\0')
-            {
-                const char *pch = strchr(xdigits, ch);
-                if (pch != null)
-                {
-                    val <<= 4;
-                    val |= (pch - xdigits);
-                    if (val > 0xffff)
-                        return 0;
-                    saw_xdigit = 1;
-                    continue;
-                }
-                if (ch == ':')
-                {
-                    curtok = src;
-                    if (!saw_xdigit)
-                    {
-                        if (colonp)
-                            return 0;
-                        colonp = tp;
-                        continue;
-                    }
-                    else if (*src == '\0')
-                    {
-                        return 0;
-                    }
-                    if (tp + NS_INT16SZ > endp)
-                        return 0;
-                    *tp++ = (uint8_t) (val >> 8) & 0xff;
-                    *tp++ = (uint8_t) val & 0xff;
-                    saw_xdigit = 0;
-                    val = 0;
-                    continue;
-                }
-                if (ch == '.' && ((tp + NS_INADDRSZ) <= endp) &&
-                        inet_pton4(curtok, (char*) tp) > 0)
-                {
-                    tp += NS_INADDRSZ;
-                    saw_xdigit = 0;
-                    break; /* '\0' was seen by inet_pton4(). */
-                }
-                return 0;
-            }
-            if (saw_xdigit)
-            {
-                if (tp + NS_INT16SZ > endp)
-                    return 0;
-                *tp++ = (uint8_t) (val >> 8) & 0xff;
-                *tp++ = (uint8_t) val & 0xff;
-            }
-            if (colonp != null)
-            {
-                /*
-                 * Since some memmove()'s erroneously fail to handle
-                 * overlapping regions, we'll do the shift by hand.
-                 */
-                const int n = tp - colonp;
-
-                if (tp == endp)
-                    return 0;
-
-                for (int i = 1; i <= n; i++)
-                {
-                    endp[-i] = colonp[n - i];
-                    colonp[n - i] = 0;
-                }
-                tp = endp;
-            }
-            if (tp != endp)
-                return 0;
-
-            memcpy(dst, tmp, NS_IN6ADDRSZ);
-
-            return 1;
-        }
-
-
-        int inet_pton(int af, const char *src, struct in6_addr *dst) {
-            switch (af)
-            {
-            case AF_INET:
-                return inet_pton4(src, (char *)dst);
-            case AF_INET6:
-                return inet_pton6(src, (char *)dst);
-            default:
-                return -1;
-            }
-        }
-    #endif // __MINGW__
-
-    public static ulong enet_host_random_seed(void) {
+    public static ulong enet_host_random_seed() {
         return (ulong) time(null);
     }
-
-    public static int enet_address_set_host_ip_old(ENetAddress *address, const char *name) {
-        if (!inet_pton(AF_INET6, name, &address.host)) {
-            return -1;
-        }
-
-        return 0;
-    }
-
-    public static int enet_address_set_host_old(ENetAddress *address, const char *name) {
-        struct addrinfo hints, *resultList = null, *result = null;
-
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_UNSPEC;
-
-        if (getaddrinfo(name, null, &hints, &resultList) != 0) {
-            return -1;
-        }
-
-        for (result = resultList; result != null; result = result.ai_next) {
-            if (result.ai_addr != null && result.ai_addrlen >= sizeof(struct sockaddr_in)) {
-                if (result.ai_family == AF_INET) {
-                    struct sockaddr_in * sin = (struct sockaddr_in *) result.ai_addr;
-
-                    ((uint32_t *)&address.host.s6_addr)[0] = 0;
-                    ((uint32_t *)&address.host.s6_addr)[1] = 0;
-                    ((uint32_t *)&address.host.s6_addr)[2] = htonl(0xffff);
-                    ((uint32_t *)&address.host.s6_addr)[3] = sin.sin_addr.s_addr;
-
-                    freeaddrinfo(resultList);
-                    return 0;
-                }
-                else if(result.ai_family == AF_INET6) {
-                    struct sockaddr_in6 * sin = (struct sockaddr_in6 *)result.ai_addr;
-
-                    address.host = sin.sin6_addr;
-                    address.sin6_scope_id = sin.sin6_scope_id;
-
-                    freeaddrinfo(resultList);
-                    return 0;
-                }
-            }
-        }
-        freeaddrinfo(resultList);
-
-        return enet_address_set_host_ip(address, name);
-    } /* enet_address_set_host_old */
-
-    public static int enet_address_get_host_ip_old(const ENetAddress *address, char *name, ulong nameLength) {
-        if (inet_ntop(AF_INET6, &address.host, name, nameLength) == null) {
-            return -1;
-        }
-
-        return 0;
-    }
-
-    public static int enet_address_get_host_old(const ENetAddress *address, char *name, ulong nameLength) {
-        struct sockaddr_in6 sin;
-        int err;
-        memset(&sin, 0, sizeof(struct sockaddr_in6));
-        sin.sin6_family = AF_INET6;
-        sin.sin6_port = ENET_HOST_TO_NET_16 (address.port);
-        sin.sin6_addr = address.host;
-        sin.sin6_scope_id = address.sin6_scope_id;
-        err = getnameinfo((struct sockaddr *) &sin, sizeof(sin), name, nameLength, null, 0, NI_NAMEREQD);
-        if (!err) {
-            if (name != null && nameLength > 0 && !memchr(name, '\0', nameLength)) {
-                return -1;
-            }
-            return 0;
-        }
-        if (err != EAI_NONAME) {
-            return -1;
-        }
-        return enet_address_get_host_ip(address, name, nameLength);
-    } /* enet_address_get_host_old */
-
-    public static int enet_socket_bind(ENetSocket socket, const ENetAddress *address) {
-        struct sockaddr_in6 sin;
-        memset(&sin, 0, sizeof(struct sockaddr_in6));
-        sin.sin6_family = AF_INET6;
-
-        if (address != null) {
-            sin.sin6_port       = ENET_HOST_TO_NET_16(address.port);
-            sin.sin6_addr       = address.host;
-            sin.sin6_scope_id   = address.sin6_scope_id;
-        } else {
-            sin.sin6_port       = 0;
-            sin.sin6_addr       = ENET_HOST_ANY;
-            sin.sin6_scope_id   = 0;
-        }
-
-        return bind(socket, (struct sockaddr *)&sin, sizeof(struct sockaddr_in6));
-    }
-
-    public static int enet_socket_get_address(ENetSocket socket, ENetAddress *address) {
-        struct sockaddr_in6 sin;
-        socklen_t sinLength = sizeof(struct sockaddr_in6);
-
-        if (getsockname(socket, (struct sockaddr *) &sin, &sinLength) == -1) {
-            return -1;
-        }
-
-        address.host           = sin.sin6_addr;
-        address.port           = ENET_NET_TO_HOST_16(sin.sin6_port);
-        address.sin6_scope_id  = sin.sin6_scope_id;
-
-        return 0;
-    }
-
-    public static int enet_socket_listen(ENetSocket socket, int backlog) {
-        return listen(socket, backlog < 0 ? SOMAXCONN : backlog);
-    }
-
-    ENetSocket enet_socket_create(ENetSocketType type) {
-        return socket(PF_INET6, (int)type == ENET_SOCKET_TYPE_DATAGRAM ? SOCK_DGRAM : SOCK_STREAM, 0);
-    }
-
-    public static int enet_socket_set_option(ENetSocket socket, ENetSocketOption option, int value) {
-        int result = -1;
-
-        switch (option) {
-            case ENET_SOCKOPT_NONBLOCK:
-                result = fcntl(socket, F_SETFL, (value ? O_NONBLOCK : 0) | (fcntl(socket, F_GETFL) & ~O_NONBLOCK));
-                break;
-
-            case ENET_SOCKOPT_BROADCAST:
-                result = setsockopt(socket, SOL_SOCKET, SO_BROADCAST, (char *)&value, sizeof(int));
-                break;
-
-            case ENET_SOCKOPT_REUSEADDR:
-                result = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, (char *)&value, sizeof(int));
-                break;
-
-            case ENET_SOCKOPT_RCVBUF:
-                result = setsockopt(socket, SOL_SOCKET, SO_RCVBUF, (char *)&value, sizeof(int));
-                break;
-
-            case ENET_SOCKOPT_SNDBUF:
-                result = setsockopt(socket, SOL_SOCKET, SO_SNDBUF, (char *)&value, sizeof(int));
-                break;
-
-            case ENET_SOCKOPT_RCVTIMEO: {
-                struct timeval timeVal;
-                timeVal.tv_sec  = value / 1000;
-                timeVal.tv_usec = (value % 1000) * 1000;
-                result = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeVal, sizeof(struct timeval));
-                break;
-            }
-
-            case ENET_SOCKOPT_SNDTIMEO: {
-                struct timeval timeVal;
-                timeVal.tv_sec  = value / 1000;
-                timeVal.tv_usec = (value % 1000) * 1000;
-                result = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeVal, sizeof(struct timeval));
-                break;
-            }
-
-            case ENET_SOCKOPT_NODELAY:
-                result = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, (char *)&value, sizeof(int));
-                break;
-
-            case ENET_SOCKOPT_IPV6_V6ONLY:
-                result = setsockopt(socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&value, sizeof(int));
-                break;
-
-            case ENET_SOCKOPT_TTL:
-                result = setsockopt(socket, IPPROTO_IP, IP_TTL, (char *)&value, sizeof(int));
-                break;
-
-            default:
-                break;
-        }
-        return result == -1 ? -1 : 0;
-    } /* enet_socket_set_option */
-
-    public static int enet_socket_get_option(ENetSocket socket, ENetSocketOption option, int *value) {
-        int result = -1;
-        socklen_t len;
-
-        switch (option) {
-            case ENET_SOCKOPT_ERROR:
-                len    = sizeof(int);
-                result = getsockopt(socket, SOL_SOCKET, SO_ERROR, value, &len);
-                break;
-
-            case ENET_SOCKOPT_TTL:
-                len = sizeof (int);
-                result = getsockopt(socket, IPPROTO_IP, IP_TTL, (char *)value, &len);
-                break;
-
-            default:
-                break;
-        }
-        return result == -1 ? -1 : 0;
-    }
-
-    public static int enet_socket_connect(ENetSocket socket, const ENetAddress *address) {
-        struct sockaddr_in6 sin;
-        int result;
-
-        memset(&sin, 0, sizeof(struct sockaddr_in6));
-
-        sin.sin6_family     = AF_INET6;
-        sin.sin6_port       = ENET_HOST_TO_NET_16(address.port);
-        sin.sin6_addr       = address.host;
-        sin.sin6_scope_id   = address.sin6_scope_id;
-
-        result = connect(socket, (struct sockaddr *)&sin, sizeof(struct sockaddr_in6));
-        if (result == -1 && errno == EINPROGRESS) {
-            return 0;
-        }
-
-        return result;
-    }
-
-    ENetSocket enet_socket_accept(ENetSocket socket, ENetAddress *address) {
-        int result;
-        struct sockaddr_in6 sin;
-        socklen_t sinLength = sizeof(struct sockaddr_in6);
-
-        result = accept(socket,address != null ? (struct sockaddr *) &sin : null, address != null ? &sinLength : null);
-
-        if (result == -1) {
-            return ENET_SOCKET_NULL;
-        }
-
-        if (address != null) {
-            address.host = sin.sin6_addr;
-            address.port = ENET_NET_TO_HOST_16 (sin.sin6_port);
-            address.sin6_scope_id = sin.sin6_scope_id;
-        }
-
-        return result;
-    }
-
-    public static int enet_socket_shutdown(ENetSocket socket, ENetSocketShutdown how) {
-        return shutdown(socket, (int) how);
-    }
-
-    public static void enet_socket_destroy(ENetSocket socket) {
-        if (socket != -1) {
-            close(socket);
-        }
-    }
-
-    public static int enet_socket_send(ENetSocket socket, const ENetAddress *address, const ENetBuffer *buffers, ulong bufferCount) {
-        struct msghdr msgHdr;
-        struct sockaddr_in6 sin;
-        int sentLength;
-
-        memset(&msgHdr, 0, sizeof(struct msghdr));
-
-        if (address != null) {
-            memset(&sin, 0, sizeof(struct sockaddr_in6));
-
-            sin.sin6_family     = AF_INET6;
-            sin.sin6_port       = ENET_HOST_TO_NET_16(address.port);
-            sin.sin6_addr       = address.host;
-            sin.sin6_scope_id   = address.sin6_scope_id;
-
-            msgHdr.msg_name    = &sin;
-            msgHdr.msg_namelen = sizeof(struct sockaddr_in6);
-        }
-
-        msgHdr.msg_iov    = (struct iovec *) buffers;
-        msgHdr.msg_iovlen = bufferCount;
-
-        sentLength = sendmsg(socket, &msgHdr, MSG_NOSIGNAL);
-
-        if (sentLength == -1) {
-            switch (errno)
-            {
-                case EWOULDBLOCK:
-                    return 0;
-                case EINTR:
-                case EMSGSIZE:
-                    return -2;
-                default:
-                    return -1;
-            }
-
-            return -1;
-        }
-
-        return sentLength;
-    } /* enet_socket_send */
-
-    public static int enet_socket_receive(ENetSocket socket, ENetAddress *address, ENetBuffer *buffers, ulong bufferCount) {
-        struct msghdr msgHdr;
-        struct sockaddr_in6 sin;
-        int recvLength;
-
-        memset(&msgHdr, 0, sizeof(struct msghdr));
-
-        if (address != null) {
-            msgHdr.msg_name    = &sin;
-            msgHdr.msg_namelen = sizeof(struct sockaddr_in6);
-        }
-
-        msgHdr.msg_iov    = (struct iovec *) buffers;
-        msgHdr.msg_iovlen = bufferCount;
-
-        recvLength = recvmsg(socket, &msgHdr, MSG_NOSIGNAL);
-
-        if (recvLength == -1) {
-            if (errno == EWOULDBLOCK) {
-                return 0;
-            }
-
-            return -1;
-        }
-
-        if (msgHdr.msg_flags & MSG_TRUNC) {
-            return -2;
-        }
-
-        if (address != null) {
-            address.host           = sin.sin6_addr;
-            address.port           = ENET_NET_TO_HOST_16(sin.sin6_port);
-            address.sin6_scope_id  = sin.sin6_scope_id;
-        }
-
-        return recvLength;
-    } /* enet_socket_receive */
-
-    public static int enet_socketset_select(ENetSocket maxSocket, ENetSocketSet *readSet, ENetSocketSet *writeSet, uint timeout) {
-        struct timeval timeVal;
-
-        timeVal.tv_sec  = timeout / 1000;
-        timeVal.tv_usec = (timeout % 1000) * 1000;
-
-        return select(maxSocket + 1, readSet, writeSet, null, &timeVal);
-    }
-
-    public static int enet_socket_wait(ENetSocket socket, uint *condition, ulong timeout) {
-        struct pollfd pollSocket;
-        int pollCount;
-
-        pollSocket.fd     = socket;
-        pollSocket.events = 0;
-
-        if (*condition & ENET_SOCKET_WAIT_SEND) {
-            pollSocket.events |= POLLOUT;
-        }
-
-        if (*condition & ENET_SOCKET_WAIT_RECEIVE) {
-            pollSocket.events |= POLLIN;
-        }
-
-        pollCount = poll(&pollSocket, 1, timeout);
-
-        if (pollCount < 0) {
-            if (errno == EINTR && *condition & ENET_SOCKET_WAIT_INTERRUPT) {
-                *condition = ENET_SOCKET_WAIT_INTERRUPT;
-
-                return 0;
-            }
-
-            return -1;
-        }
-
-        *condition = ENET_SOCKET_WAIT_NONE;
-
-        if (pollCount == 0) {
-            return 0;
-        }
-
-        if (pollSocket.revents & POLLOUT) {
-            *condition |= ENET_SOCKET_WAIT_SEND;
-        }
-
-        if (pollSocket.revents & POLLIN) {
-            *condition |= ENET_SOCKET_WAIT_RECEIVE;
-        }
-
-        return 0;
-    } /* enet_socket_wait */
-
 
 
 // =======================================================================//
@@ -4723,7 +4177,7 @@ public static void enet_host_destroy(ENetHost *host) {
 // !
 // =======================================================================//
 
-    public static int enet_initialize(void) {
+    public static int enet_initialize() {
         WORD versionRequested = MAKEWORD(1, 1);
         WSADATA wsaData = {0};
 
@@ -4740,7 +4194,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return 0;
     }
 
-    public static void enet_deinitialize(void) {
+    public static void enet_deinitialize() {
         timeEndPeriod(1);
         WSACleanup();
     }
@@ -4818,7 +4272,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return 0;
     }
 
-    public static int enet_socket_bind(ENetSocket socket, const ENetAddress *address) {
+    public static int enet_socket_bind(Socket socket, const ENetAddress *address) {
         struct sockaddr_in6 sin = {0};
         sin.sin6_family = AF_INET6;
 
@@ -4835,7 +4289,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return bind(socket, (struct sockaddr *) &sin, sizeof(struct sockaddr_in6)) == SOCKET_ERROR ? -1 : 0;
     }
 
-    public static int enet_socket_get_address(ENetSocket socket, ENetAddress *address) {
+    public static int enet_socket_get_address(Socket socket, ref ENetAddress address) {
         struct sockaddr_in6 sin = {0};
         int sinLength = sizeof(struct sockaddr_in6);
 
@@ -4850,57 +4304,57 @@ public static void enet_host_destroy(ENetHost *host) {
         return 0;
     }
 
-    public static int enet_socket_listen(ENetSocket socket, int backlog) {
+    public static int enet_socket_listen(Socket socket, int backlog) {
         return listen(socket, backlog < 0 ? SOMAXCONN : backlog) == SOCKET_ERROR ? -1 : 0;
     }
 
-    ENetSocket enet_socket_create(ENetSocketType type) {
-        return socket(PF_INET6, type == ENET_SOCKET_TYPE_DATAGRAM ? SOCK_DGRAM : SOCK_STREAM, 0);
+    public static Socket enet_socket_create(ENetSocketType type) {
+        return socket(PF_INET6, type == ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM ? SOCK_DGRAM : SOCK_STREAM, 0);
     }
 
-    public static int enet_socket_set_option(ENetSocket socket, ENetSocketOption option, int value) {
+    public static int enet_socket_set_option(Socket socket, ENetSocketOption option, int value) {
         int result = SOCKET_ERROR;
 
         switch (option) {
-            case ENET_SOCKOPT_NONBLOCK: {
+            case ENetSocketOption.ENET_SOCKOPT_NONBLOCK: {
                 u_long nonBlocking = (u_long) value;
                 result = ioctlsocket(socket, FIONBIO, &nonBlocking);
                 break;
             }
 
-            case ENET_SOCKOPT_BROADCAST:
+            case ENetSocketOption.ENET_SOCKOPT_BROADCAST:
                 result = setsockopt(socket, SOL_SOCKET, SO_BROADCAST, (char *)&value, sizeof(int));
                 break;
 
-            case ENET_SOCKOPT_REUSEADDR:
+            case ENetSocketOption.ENET_SOCKOPT_REUSEADDR:
                 result = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, (char *)&value, sizeof(int));
                 break;
 
-            case ENET_SOCKOPT_RCVBUF:
+            case ENetSocketOption.ENET_SOCKOPT_RCVBUF:
                 result = setsockopt(socket, SOL_SOCKET, SO_RCVBUF, (char *)&value, sizeof(int));
                 break;
 
-            case ENET_SOCKOPT_SNDBUF:
+            case ENetSocketOption.ENET_SOCKOPT_SNDBUF:
                 result = setsockopt(socket, SOL_SOCKET, SO_SNDBUF, (char *)&value, sizeof(int));
                 break;
 
-            case ENET_SOCKOPT_RCVTIMEO:
+            case ENetSocketOption.ENET_SOCKOPT_RCVTIMEO:
                 result = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&value, sizeof(int));
                 break;
 
-            case ENET_SOCKOPT_SNDTIMEO:
+            case ENetSocketOption.ENET_SOCKOPT_SNDTIMEO:
                 result = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&value, sizeof(int));
                 break;
 
-            case ENET_SOCKOPT_NODELAY:
+            case ENetSocketOption.ENET_SOCKOPT_NODELAY:
                 result = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, (char *)&value, sizeof(int));
                 break;
 
-            case ENET_SOCKOPT_IPV6_V6ONLY:
+            case ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY:
                 result = setsockopt(socket, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&value, sizeof(int));
                 break;
             
-            case ENET_SOCKOPT_TTL:
+            case ENetSocketOption.ENET_SOCKOPT_TTL:
                 result = setsockopt(socket, IPPROTO_IP, IP_TTL, (char *)&value, sizeof(int));
                 break;
 
@@ -4910,16 +4364,16 @@ public static void enet_host_destroy(ENetHost *host) {
         return result == SOCKET_ERROR ? -1 : 0;
     } /* enet_socket_set_option */
 
-    public static int enet_socket_get_option(ENetSocket socket, ENetSocketOption option, int *value) {
+    public static int enet_socket_get_option(Socket socket, ENetSocketOption option, int *value) {
         int result = SOCKET_ERROR, len;
 
         switch (option) {
-            case ENET_SOCKOPT_ERROR:
+            case ENetSocketOption.ENET_SOCKOPT_ERROR:
                 len    = sizeof(int);
                 result = getsockopt(socket, SOL_SOCKET, SO_ERROR, (char *)value, &len);
                 break;
 
-            case ENET_SOCKOPT_TTL:
+            case ENetSocketOption.ENET_SOCKOPT_TTL:
                 len = sizeof(int);
                 result = getsockopt(socket, IPPROTO_IP, IP_TTL, (char *)value, &len);
                 break;
@@ -4930,7 +4384,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return result == SOCKET_ERROR ? -1 : 0;
     }
 
-    public static int enet_socket_connect(ENetSocket socket, const ENetAddress *address) {
+    public static int enet_socket_connect(Socket socket, const ENetAddress *address) {
         struct sockaddr_in6 sin = {0};
         int result;
 
@@ -4947,7 +4401,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return 0;
     }
 
-    ENetSocket enet_socket_accept(ENetSocket socket, ENetAddress *address) {
+    public static Socket enet_socket_accept(Socket socket, ENetAddress *address) {
         SOCKET result;
         struct sockaddr_in6 sin = {0};
         int sinLength = sizeof(struct sockaddr_in6);
@@ -4955,7 +4409,7 @@ public static void enet_host_destroy(ENetHost *host) {
         result = accept(socket, address != null ? (struct sockaddr *)&sin : null, address != null ? &sinLength : null);
 
         if (result == INVALID_SOCKET) {
-            return ENET_SOCKET_NULL;
+            return null;
         }
 
         if (address != null) {
@@ -4967,17 +4421,17 @@ public static void enet_host_destroy(ENetHost *host) {
         return result;
     }
 
-    public static int enet_socket_shutdown(ENetSocket socket, ENetSocketShutdown how) {
+    public static int enet_socket_shutdown(Socket socket, ENetSocketShutdown how) {
         return shutdown(socket, (int) how) == SOCKET_ERROR ? -1 : 0;
     }
 
-    public static void enet_socket_destroy(ENetSocket socket) {
+    public static void enet_socket_destroy(Socket socket) {
         if (socket != INVALID_SOCKET) {
             closesocket(socket);
         }
     }
 
-    public static int enet_socket_send(ENetSocket socket, const ENetAddress *address, const ENetBuffer *buffers, ulong bufferCount) {
+    public static int enet_socket_send(Socket socket, ref ENetAddress address, ref ENetBuffer buffers, ulong bufferCount) {
         struct sockaddr_in6 sin = {0};
         DWORD sentLength = 0;
 
@@ -5004,7 +4458,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return (int) sentLength;
     }
 
-    public static int enet_socket_receive(ENetSocket socket, ENetAddress *address, ENetBuffer *buffers, ulong bufferCount) {
+    public static int enet_socket_receive(Socket socket, ENetAddress *address, ENetBuffer *buffers, ulong bufferCount) {
         INT sinLength = sizeof(struct sockaddr_in6);
         DWORD flags   = 0, recvLength = 0;
         struct sockaddr_in6 sin = {0};
@@ -5044,7 +4498,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return (int) recvLength;
     } /* enet_socket_receive */
 
-    public static int enet_socketset_select(ENetSocket maxSocket, ENetSocketSet *readSet, ENetSocketSet *writeSet, uint timeout) {
+    public static int enet_socketset_select(Socket maxSocket, ENetSocketSet *readSet, ENetSocketSet *writeSet, uint timeout) {
         struct timeval timeVal;
 
         timeVal.tv_sec  = timeout / 1000;
@@ -5053,7 +4507,7 @@ public static void enet_host_destroy(ENetHost *host) {
         return select(maxSocket + 1, readSet, writeSet, null, &timeVal);
     }
 
-    public static int enet_socket_wait(ENetSocket socket, uint *condition, ulong timeout) {
+    public static int enet_socket_wait(Socket socket, uint *condition, ulong timeout) {
         fd_set readSet, writeSet;
         struct timeval timeVal;
         int selectCount;

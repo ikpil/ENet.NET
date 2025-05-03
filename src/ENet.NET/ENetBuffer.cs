@@ -1,7 +1,9 @@
-﻿namespace ENet.NET;
+﻿using System;
+
+namespace ENet.NET;
 
 public struct ENetBuffer
 {
-    public object data;
+    public ArraySegment<byte> data;
     public ulong dataLength;
 }

@@ -1,4 +1,7 @@
-﻿namespace ENet.NET;
+﻿using System.Net;
+using System.Net.Sockets;
+
+namespace ENet.NET;
 
 /** An ENet host for communicating with peers.
  *
@@ -17,7 +20,7 @@
  */
 public class ENetHost
 {
-    public ENetSocket socket;
+    public Socket socket;
     public ENetAddress address; /* Internet address of the host */
     public uint incomingBandwidth; /* downstream bandwidth of the host */
     public uint outgoingBandwidth; /* upstream bandwidth of the host */
@@ -26,20 +29,20 @@ public class ENetHost
     public uint randomSeed;
     public int recalculateBandwidthLimits;
     public ENetPeer[] peers; /* array of peers allocated for this host */
-    public ulong peerCount; /* number of peers allocated for this host */
+    public int peerCount; /* number of peers allocated for this host */
     public ulong channelLimit; /* maximum number of channels allowed for connected peers */
     public uint serviceTime;
     public ENetList<ENetPeer> dispatchQueue;
     public uint totalQueued;
     public ulong packetSize;
     public ushort headerFlags;
-    public ENetProtocol commands[ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
+    public ENetProtocol[] commands = new ENetProtocol[ENets.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
     public ulong commandCount;
-    public ENetBuffer buffers[ENET_BUFFER_MAXIMUM];
+    public ENetBuffer[] buffers = new ENetBuffer[ENets.ENET_BUFFER_MAXIMUM];
     public ulong bufferCount;
     public ENetChecksumCallback checksum; /* callback the user can set to enable packet checksums for this host */
     public ENetCompressor compressor;
-    public byte packetData[2][ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_MTU];
+    public byte packetData[2][ENets.ENET_PROTOCOL_MAXIMUM_MTU];
     public ENetAddress receivedAddress;
     public byte* receivedData;
     public ulong receivedDataLength;

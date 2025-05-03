@@ -16,11 +16,11 @@ public class ENetPeer
     public byte outgoingSessionID;
     public byte incomingSessionID;
     public ENetAddress address; /* Internet address of the peer */
-    public void* data; /* Application private data, may be freely modified */
+    public object data; /* Application private data, may be freely modified */
     public ENetPeerState state;
 
     public ENetChannel[] channels;
-    public ulong channelCount; /* Number of channels allocated for communication with peer */
+    public int channelCount; /* Number of channels allocated for communication with peer */
     public uint incomingBandwidth; /* Downstream bandwidth of the client in bytes/second */
     public uint outgoingBandwidth; /* Upstream bandwidth of the client in bytes/second */
     public uint incomingBandwidthThrottleEpoch;
@@ -62,7 +62,7 @@ public class ENetPeer
     public uint windowSize;
     public uint reliableDataInTransit;
     public ushort outgoingReliableSequenceNumber;
-    public ENetList acknowledgements;
+    public ENetList<ENetAcknowledgement> acknowledgements;
     public ENetList<ENetOutgoingCommand> sentReliableCommands;
     public ENetList<ENetOutgoingCommand> outgoingCommands;
     public ENetList<ENetOutgoingCommand> outgoingSendReliableCommands;
@@ -71,7 +71,7 @@ public class ENetPeer
     public ushort reserved;
     public ushort incomingUnsequencedGroup;
     public ushort outgoingUnsequencedGroup;
-    public uint[] unsequencedWindow = new uint[ENetPeerConst.ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
+    public uint[] unsequencedWindow = new uint[ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
     public uint eventData;
     public ulong totalWaitingData;
 }

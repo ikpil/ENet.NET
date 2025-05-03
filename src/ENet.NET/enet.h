@@ -42,12 +42,6 @@
 #include <time.h>
 
 
-#define ENET_TIME_OVERFLOW 86400000
-#define ENET_TIME_LESS(a, b) ((a) - (b) >= ENET_TIME_OVERFLOW)
-#define ENET_TIME_GREATER(a, b) ((b) - (a) >= ENET_TIME_OVERFLOW)
-#define ENET_TIME_LESS_EQUAL(a, b) (! ENET_TIME_GREATER (a, b))
-#define ENET_TIME_GREATER_EQUAL(a, b) (! ENET_TIME_LESS (a, b))
-#define ENET_TIME_DIFFERENCE(a, b) ((a) - (b) >= ENET_TIME_OVERFLOW ? (b) - (a) : (a) - (b))
 
 // =======================================================================//
 // !
@@ -101,8 +95,8 @@
     #define CLOCK_MONOTONIC 0
     #endif
 
-    typedef SOCKET ENetSocket;
-    #define ENET_SOCKET_NULL INVALID_SOCKET
+    typedef SOCKET Socket;
+    #define null INVALID_SOCKET
 
     #define ENET_HOST_TO_NET_16(value) (htons(value))
     #define ENET_HOST_TO_NET_32(value) (htonl(value))
@@ -133,68 +127,8 @@
     #define ENET_SOCKETSET_ADD(sockset, socket)    FD_SET(socket, &(sockset))
     #define ENET_SOCKETSET_REMOVE(sockset, socket) FD_CLR(socket, &(sockset))
     #define ENET_SOCKETSET_CHECK(sockset, socket)  FD_ISSET(socket, &(sockset))
-#else
-    #include <sys/types.h>
-    #include <sys/ioctl.h>
-    #include <sys/time.h>
-    #include <sys/socket.h>
-    #include <poll.h>
-    #include <arpa/inet.h>
-    #include <netinet/in.h>
-    #include <netinet/tcp.h>
-    #include <netdb.h>
-    #include <unistd.h>
-    #include <string.h>
-    #include <errno.h>
-    #include <fcntl.h>
-
-    #ifdef __APPLE__
-    #include <mach/clock.h>
-    #include <mach/mach.h>
-    #include <Availability.h>
-    #endif
-
-    #ifndef MSG_NOSIGNAL
-    #define MSG_NOSIGNAL 0
-    #endif
-
-    #ifdef MSG_MAXIOVLEN
-    #define ENET_BUFFER_MAXIMUM MSG_MAXIOVLEN
-    #endif
-
-    typedef int ENetSocket;
-
-    #define ENET_SOCKET_NULL -1
-
-    #define ENET_HOST_TO_NET_16(value) (htons(value)) /* macro that converts host to net byte-order of a 16-bit value */
-    #define ENET_HOST_TO_NET_32(value) (htonl(value)) /* macro that converts host to net byte-order of a 32-bit value */
-
-    #define ENET_NET_TO_HOST_16(value) (ntohs(value)) /* macro that converts net to host byte-order of a 16-bit value */
-    #define ENET_NET_TO_HOST_32(value) (ntohl(value)) /* macro that converts net to host byte-order of a 32-bit value */
-
-    #define ENET_CALLBACK
-    #define ENET_API extern
-
-    typedef fd_set ENetSocketSet;
-
-    #define ENET_SOCKETSET_EMPTY(sockset)          FD_ZERO(&(sockset))
-    #define ENET_SOCKETSET_ADD(sockset, socket)    FD_SET(socket, &(sockset))
-    #define ENET_SOCKETSET_REMOVE(sockset, socket) FD_CLR(socket, &(sockset))
-    #define ENET_SOCKETSET_CHECK(sockset, socket)  FD_ISSET(socket, &(sockset))
 #endif
 
-#ifdef __GNUC__
-#define ENET_DEPRECATED(func) func __attribute__ ((deprecated))
-#elif defined(_MSC_VER)
-#define ENET_DEPRECATED(func) __declspec(deprecated) func
-#else
-#pragma message("WARNING: Please ENET_DEPRECATED for this compiler")
-#define ENET_DEPRECATED(func) func
-#endif
-
-#ifndef ENET_BUFFER_MAXIMUM
-#define ENET_BUFFER_MAXIMUM (1 + 2 * ENetProtocolConst.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS)
-#endif
 
 
 #define ENET_IPV6           1
@@ -228,27 +162,6 @@ static const struct in6_addr enet_v6_localhost = {{{ 0x00, 0x00, 0x00, 0x00, 0x0
 
     #define in6_equal(in6_addr_a, in6_addr_b) (memcmp(&in6_addr_a, &in6_addr_b, sizeof(struct in6_addr)) == 0)
 
-
-    /** An ENet packet compressor for compressing UDP packets before socket sends or receives. */
-    typedef struct _ENetCompressor {
-        /** Context data for the compressor. Must be non-NULL. */
-        void *context;
-
-        /** Compresses from inBuffers[0:inBufferCount-1], containing inLimit bytes, to outData, outputting at most outLimit bytes. Should return 0 on failure. */
-        ulong(ENET_CALLBACK * compress) (void *context, const ENetBuffer * inBuffers, ulong inBufferCount, ulong inLimit, byte * outData, ulong outLimit);
-
-        /** Decompresses from inData, containing inLimit bytes, to outData, outputting at most outLimit bytes. Should return 0 on failure. */
-        ulong(ENET_CALLBACK * decompress) (void *context, const byte * inData, ulong inLimit, byte * outData, ulong outLimit);
-
-        /** Destroys the context when compression is disabled or the host is destroyed. May be NULL. */
-        void (ENET_CALLBACK * destroy)(void *context);
-    } ENetCompressor;
-
-    /** Callback that computes the checksum of the data held in buffers[0:bufferCount-1] */
-    typedef uint (ENET_CALLBACK * ENetChecksumCallback)(const ENetBuffer *buffers, ulong bufferCount);
-
-    /** Callback for intercepting received raw UDP packets. Should return 1 to intercept, 0 to ignore, or -1 to propagate an error. */
-    typedef int (ENET_CALLBACK * ENetInterceptCallback)(struct _ENetHost *host, void *event);
 
 
 
