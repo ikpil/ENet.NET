@@ -1,6 +1,7 @@
-﻿namespace ENet.NET
-{
+﻿using System.Net;
 
+namespace ENet.NET
+{
     /**
      * Portable internet address structure.
      *
@@ -11,10 +12,23 @@
      * but not for enet_host_create.  Once a server responds to a broadcast, the
      * address is updated from ENET_HOST_BROADCAST to the server's actual IP address.
      */
-    public struct ENetAddress
+    public class ENetAddress
     {
-        public in6_addr host;
+        public IPAddress host;
         public ushort port;
-        public ushort sin6_scope_id;
+        public long sin6_scope_id;
+
+        public ENetAddress(IPAddress host, ushort port, long sin6_scope_id)
+        {
+            this.host = host;
+            this.port = port;
+            this.sin6_scope_id = sin6_scope_id;
+        }
+
+        public ENetAddress Clone()
+        {
+            var ipaddr = new IPAddress(host.GetAddressBytes(), host.ScopeId);
+            return new ENetAddress(ipaddr, port, sin6_scope_id);
+        }
     }
 }

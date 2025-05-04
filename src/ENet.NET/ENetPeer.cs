@@ -25,42 +25,42 @@
         public long outgoingBandwidth; /* Upstream bandwidth of the client in bytes/second */
         public long incomingBandwidthThrottleEpoch;
 
-        public uint outgoingBandwidthThrottleEpoch;
-        public uint incomingDataTotal;
+        public long outgoingBandwidthThrottleEpoch;
+        public long incomingDataTotal;
         public long totalDataReceived;
-        public uint outgoingDataTotal;
+        public long outgoingDataTotal;
         public long totalDataSent;
-        public uint lastSendTime;
-        public uint lastReceiveTime;
-        public uint nextTimeout;
-        public uint earliestTimeout;
-        public uint packetLossEpoch;
-        public uint packetsSent;
+        public long lastSendTime;
+        public long lastReceiveTime;
+        public long nextTimeout;
+        public long earliestTimeout;
+        public long packetLossEpoch;
+        public long packetsSent;
         public long totalPacketsSent; /* total number of packets sent during a session */
-        public uint packetsLost;
-        public uint totalPacketsLost; /* total number of packets lost during a session */
-        public uint packetLoss; /* mean packet loss of reliable packets as a ratio with respect to the constant ENET_PEER_PACKET_LOSS_SCALE */
-        public uint packetLossVariance;
-        public uint packetThrottle;
-        public uint packetThrottleLimit;
-        public uint packetThrottleCounter;
-        public uint packetThrottleEpoch;
-        public uint packetThrottleAcceleration;
-        public uint packetThrottleDeceleration;
-        public uint packetThrottleInterval;
-        public uint pingInterval;
-        public uint timeoutLimit;
-        public uint timeoutMinimum;
-        public uint timeoutMaximum;
-        public uint lastRoundTripTime;
-        public uint lowestRoundTripTime;
-        public uint lastRoundTripTimeVariance;
-        public uint highestRoundTripTimeVariance;
-        public uint roundTripTime; /* mean round trip time (RTT), in milliseconds, between sending a reliable packet and receiving its acknowledgement */
-        public uint roundTripTimeVariance;
+        public long packetsLost;
+        public long totalPacketsLost; /* total number of packets lost during a session */
+        public long packetLoss; /* mean packet loss of reliable packets as a ratio with respect to the constant ENET_PEER_PACKET_LOSS_SCALE */
+        public long packetLossVariance;
+        public long packetThrottle;
+        public long packetThrottleLimit;
+        public long packetThrottleCounter;
+        public long packetThrottleEpoch;
+        public long packetThrottleAcceleration;
+        public long packetThrottleDeceleration;
+        public long packetThrottleInterval;
+        public long pingInterval;
+        public long timeoutLimit;
+        public long timeoutMinimum;
+        public long timeoutMaximum;
+        public long lastRoundTripTime;
+        public long lowestRoundTripTime;
+        public long lastRoundTripTimeVariance;
+        public long highestRoundTripTimeVariance;
+        public long roundTripTime; /* mean round trip time (RTT), in milliseconds, between sending a reliable packet and receiving its acknowledgement */
+        public long roundTripTimeVariance;
         public long mtu;
         public long windowSize;
-        public uint reliableDataInTransit;
+        public long reliableDataInTransit;
         public ushort outgoingReliableSequenceNumber;
         public ENetList<ENetAcknowledgement> acknowledgements;
         public ENetList<ENetOutgoingCommand> sentReliableCommands;

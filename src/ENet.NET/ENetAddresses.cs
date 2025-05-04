@@ -1,190 +1,197 @@
-﻿namespace ENet.NET
+﻿using System;
+using System.Net;
+using System.Net.Sockets;
+
+namespace ENet.NET
 {
-
-public static class ENetAddresses
-{
-        public static void enet_inaddr_map4to6(struct in_addr in, struct in6_addr *out)
+    public static class ENetAddresses
     {
-        if (in.s_addr == 0x00000000) { /* 0.0.0.0 */
-            *out = enet_v6_anyaddr;
-        } else if (in.s_addr == 0xFFFFFFFF) { /* 255.255.255.255 */
-            *out = enet_v6_noaddr;
-        } else {
-            *out = enet_v4_anyaddr;
-            out.s6_addr[10] = 0xFF;
-            out.s6_addr[11] = 0xFF;
-            out.s6_addr[12] = ((uint8_t *)&in.s_addr)[0];
-            out.s6_addr[13] = ((uint8_t *)&in.s_addr)[1];
-            out.s6_addr[14] = ((uint8_t *)&in.s_addr)[2];
-            out.s6_addr[15] = ((uint8_t *)&in.s_addr)[3];
-        }
-    }
-    public static void enet_inaddr_map6to4(const struct in6_addr *in, struct in_addr *out)
-    {
-        memset(out, 0, sizeof(struct in_addr));
-        ((uint8_t *)&out.s_addr)[0] = in.s6_addr[12];
-        ((uint8_t *)&out.s_addr)[1] = in.s6_addr[13];
-        ((uint8_t *)&out.s_addr)[2] = in.s6_addr[14];
-        ((uint8_t *)&out.s_addr)[3] = in.s6_addr[15];
-    }
-
-    public static int enet_in6addr_lookup_host(const char *name, bool nodns, ENetAddress *out) {
-        struct addrinfo hints, *resultList = null, *result = null;
-
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_UNSPEC;
-
-        if (nodns)
+        public static ushort ENET_HOST_TO_NET_16(ushort value)
         {
-            hints.ai_flags = AI_NUMERICHOST; /* prevent actual DNS lookups! */
+            return (ushort)IPAddress.NetworkToHostOrder((short)value); /* macro that converts host to net byte-order of a 16-bit value */
         }
 
-        if (getaddrinfo(name, null, &hints, &resultList) != 0) {
-            freeaddrinfo(resultList);
-            return -1;
+        public static uint ENET_HOST_TO_NET_32(uint value)
+        {
+            return (uint)IPAddress.HostToNetworkOrder((int)value); /* macro that converts host to net byte-order of a 32-bit value */
         }
 
-        for (result = resultList; result != null; result = result.ai_next) {
-            if (result.ai_addr != null) {
-                if (result.ai_family == AF_INET || (result.ai_family == AF_UNSPEC && result.ai_addrlen == sizeof(struct sockaddr_in))) {
-                    enet_inaddr_map4to6(((struct sockaddr_in*)result.ai_addr).sin_addr, &out.host);
-                    out.sin6_scope_id = 0;
-                    freeaddrinfo(resultList);
-                    return 0;
+        public static ushort ENET_NET_TO_HOST_16(ushort value)
+        {
+            return (ushort)IPAddress.NetworkToHostOrder((short)value); /* macro that converts net to host byte-order of a 16-bit value */
+        }
 
-                } else if (result.ai_family == AF_INET6 || (result.ai_family == AF_UNSPEC && result.ai_addrlen == sizeof(struct sockaddr_in6))) {
-                    memcpy(&out.host, &((struct sockaddr_in6*)result.ai_addr).sin6_addr, sizeof(struct ENetAddress.in6_addr));
-                    out.sin6_scope_id = (ushort) ((struct sockaddr_in6*)result.ai_addr).sin6_scope_id;
-                    freeaddrinfo(resultList);
+        public static uint ENET_NET_TO_HOST_32(uint value)
+        {
+            return (uint)IPAddress.NetworkToHostOrder((int)value); /* macro that converts net to host byte-order of a 32-bit value */
+        }
+
+        public static bool in6_equal(IPAddress a, IPAddress b)
+        {
+            if (a == null || b == null)
+                return false;
+
+            if (a.AddressFamily != AddressFamily.InterNetworkV6 ||
+                b.AddressFamily != AddressFamily.InterNetworkV6)
+                return false;
+
+            Span<byte> bytesA = stackalloc byte[16];
+            Span<byte> bytesB = stackalloc byte[16];
+
+            if (!a.TryWriteBytes(bytesA, out int writtenA) || writtenA != 16)
+                return false;
+
+            if (!b.TryWriteBytes(bytesB, out int writtenB) || writtenB != 16)
+                return false;
+
+            return bytesA.SequenceEqual(bytesB);
+        }
+
+        public static void enet_inaddr_map4to6(IPAddress ipv4Addr, out IPAddress ipv6Addr)
+        {
+            byte[] ipv4Bytes = ipv4Addr.GetAddressBytes();
+            uint ipv4Value = BitConverter.ToUInt32(ipv4Bytes, 0);
+
+            // Special cases from original ENet code
+            if (ipv4Value == 0x00000000) // 0.0.0.0
+            {
+                ipv6Addr = IPAddress.IPv6Any;
+            }
+            else if (ipv4Value == 0xFFFFFFFF) // 255.255.255.255
+            {
+                ipv6Addr = IPAddress.IPv6None;
+            }
+            else
+            {
+                // Create IPv4-mapped IPv6 address (::ffff:0:0/96)
+                ipv6Addr = ipv4Addr.MapToIPv6();
+            }
+        }
+
+        public static void enet_inaddr_map6to4(IPAddress ipv6Addr, out IPAddress ipv4Addr)
+        {
+            ipv4Addr = ipv6Addr.MapToIPv4();
+        }
+
+
+        public static int enet_in6addr_lookup_host(string name, bool noDns, out ENetAddress outAddr)
+        {
+            outAddr = null;
+
+            try
+            {
+                // If noDns is true, we only accept numeric IP addresses
+                if (noDns)
+                {
+                    if (!IPAddress.TryParse(name, out IPAddress ipAddress))
+                    {
+                        return -1;
+                    }
+
+                    outAddr = new ENetAddress(ipAddress, 0, ipAddress.ScopeId);
                     return 0;
                 }
-            }
-        }
-        freeaddrinfo(resultList);
-        return -1;
-    }
 
-    public static int enet_address_set_host_ip_new(ENetAddress *address, const char *name) {
-        return enet_in6addr_lookup_host(name, true, address);
-    }
-
-    public static int enet_address_set_host_new(ENetAddress *address, const char *name) {
-        return enet_in6addr_lookup_host(name, false, address);
-    }
-
-    public static int enet_address_get_host_ip_new(const ENetAddress *address, char *name, long nameLength) {
-        if (IN6_IS_ADDR_V4MAPPED(&address.host)) {
-            struct in_addr buf;
-            enet_inaddr_map6to4(&address.host, &buf);
-
-            if (inet_ntop(AF_INET, &buf, name, nameLength) == null) {
-                return -1;
-            }
-        }
-        else {
-            if (inet_ntop(AF_INET6, (void*)&address.host, name, nameLength) == null) {
-                return -1;
-            }
-        }
-
-        return 0;
-    } /* enet_address_get_host_ip_new */
-
-    public static int enet_address_get_host_new(const ENetAddress *address, char *name, long nameLength) {
-        struct sockaddr_in6 sin;
-        memset(&sin, 0, sizeof(struct sockaddr_in6));
-
-        int err;
-
-
-        sin.sin6_family = AF_INET6;
-        sin.sin6_port = ENET_HOST_TO_NET_16 (address.port);
-        sin.sin6_addr = address.host;
-        sin.sin6_scope_id = address.sin6_scope_id;
-
-        err = getnameinfo((struct sockaddr *) &sin, sizeof(sin), name, nameLength, null, 0, NI_NAMEREQD);
-        if (!err) {
-            if (name != null && nameLength > 0 && !memchr(name, '\0', nameLength)) {
-                return -1;
-            }
-            return 0;
-        }
-        if (err != EAI_NONAME) {
-            return -1;
-        }
-
-        return enet_address_get_host_ip_new(address, name, nameLength);
-    } /* enet_address_get_host_new */
-
-    
-       public static int enet_address_set_host_ip_old(ENetAddress *address, const char *name) {
-        byte vals[4] = { 0, 0, 0, 0 };
-        int i;
-
-        for (i = 0; i < 4; ++i) {
-            const char *next = name + 1;
-            if (*name != '0') {
-                long val = strtol(name, (char **) &next, 10);
-                if (val < 0 || val > 255 || next == name || next - name > 3) {
+                // Try to resolve the host name
+                IPAddress[] addresses = Dns.GetHostAddresses(name);
+                if (addresses.Length == 0)
+                {
                     return -1;
                 }
-                vals[i] = (byte) val;
-            }
 
-            if (*next != (i < 3 ? '.' : '\0')) {
+                // Prefer IPv6 addresses if available
+                IPAddress selectedAddress = null;
+                foreach (IPAddress addr in addresses)
+                {
+                    if (addr.AddressFamily == AddressFamily.InterNetworkV6)
+                    {
+                        selectedAddress = addr;
+                        break;
+                    }
+                    else if (addr.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        selectedAddress = addr.MapToIPv4();
+                        break;
+                    }
+                }
+
+                if (selectedAddress == null)
+                {
+                    return -1;
+                }
+
+                outAddr = new ENetAddress(selectedAddress, 0, selectedAddress.ScopeId);
+                return 0;
+            }
+            catch
+            {
                 return -1;
             }
-            name = next + 1;
         }
 
-        memcpy(&address.host, vals, sizeof(uint));
-        return 0;
-    }
 
-    public static int enet_address_set_host_old(ENetAddress *address, const char *name) {
-        struct hostent *hostEntry = null;
-        hostEntry = gethostbyname(name);
+        public static int enet_address_set_host_ip(out ENetAddress address, string name)
+        {
+            return enet_in6addr_lookup_host(name, true, out address);
+        }
 
-        if (hostEntry == null || hostEntry.h_addrtype != AF_INET) {
-            if (!inet_pton(AF_INET6, name, &address.host)) {
-                return -1;
+        public static int enet_address_set_host(out ENetAddress address, string name)
+        {
+            return enet_in6addr_lookup_host(name, false, out address);
+        }
+
+        public static int enet_address_get_host_ip(ENetAddress address, out string name)
+        {
+            if (address.host.IsIPv4MappedToIPv6)
+            {
+                name = address.host.MapToIPv4().ToString();
+                return 0;
+            }
+            else
+            {
+                // Use IPv6 address as is
+                name = address.host.ToString();
+                return 0;
             }
 
             return 0;
-        }
+        } /* enet_address_get_host_ip_new */
 
-        ((uint *)&address.host.s6_addr)[0] = 0;
-        ((uint *)&address.host.s6_addr)[1] = 0;
-        ((uint *)&address.host.s6_addr)[2] = htonl(0xffff);
-        ((uint *)&address.host.s6_addr)[3] = *(uint *)hostEntry.h_addr_list[0];
+        public static int enet_address_get_host(ENetAddress address, out string name)
+        {
+            name = null;
 
-        return 0;
-    }
+            try
+            {
+                // IPv6 설정
+                var endpoint = new IPEndPoint(address.host, address.port);
 
-    public static int enet_address_get_host_ip_old(const ENetAddress *address, char *name, long nameLength) {
-        if (inet_ntop(AF_INET6, (PVOID)&address.host, name, nameLength) == null) {
-            return -1;
-        }
+                if (address.host.AddressFamily == AddressFamily.InterNetworkV6)
+                {
+                    // ScopeId 적용
+                    var addrBytes = address.host.GetAddressBytes();
+                    var ipv6 = new IPAddress(addrBytes, address.host.ScopeId);
 
-        return 0;
-    }
+                    var hostEntry = Dns.GetHostEntry(ipv6);
+                    name = hostEntry.HostName;
 
-    public static int enet_address_get_host_old(const ENetAddress *address, char *name, long nameLength) {
-        struct in6_addr in;
-        struct hostent *hostEntry = null;
-        in = address.host;
-        hostEntry = gethostbyaddr((char *)&in, sizeof(struct in6_addr), AF_INET6);
-        if (hostEntry == null) {
-            return enet_address_get_host_ip(address, name, nameLength);
-        } else {
-            long hostLen = strlen(hostEntry.h_name);
-            if (hostLen >= nameLength) {
+                    return 0;
+                }
+                else
+                {
+                    var hostEntry = Dns.GetHostEntry(address.host);
+                    name = hostEntry.HostName;
+                    return 0;
+                }
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound)
+            {
+                return enet_address_get_host_ip(address, out name);
+            }
+            catch
+            {
                 return -1;
             }
-            memcpy(name, hostEntry.h_name, hostLen + 1);
-        }
-        return 0;
+        } /* enet_address_get_host_new */
     }
- 
-}
 }

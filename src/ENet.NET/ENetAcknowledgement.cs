@@ -2,7 +2,7 @@
 {
     public class ENetAcknowledgement
     {
-        public ENetListNode acknowledgementList;
+        public ENetListNode<ENetAcknowledgement> acknowledgementList;
         public uint sentTime;
         public ENetProtocol command;
     }

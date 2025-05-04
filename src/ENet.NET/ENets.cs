@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using static ENet.NET.ENetVersions;
 
 namespace ENet.NET
@@ -6,7 +7,7 @@ namespace ENet.NET
     public delegate void ENetPacketFreeCallback(object _);
 
     /** Callback that computes the checksum of the data held in buffers[0:bufferCount-1] */
-    public delegate uint ENetChecksumCallback(ref ENetBuffer buffers, long bufferCount);
+    public delegate uint ENetChecksumCallback(Span<ENetBuffer> buffers, long bufferCount);
 
     /** Callback for intercepting received raw UDP packets. Should return 1 to intercept, 0 to ignore, or -1 to propagate an error. */
     public delegate int ENetInterceptCallback(ENetHost host, object @event);
@@ -17,7 +18,7 @@ namespace ENet.NET
 
         // protocols
         public const uint ENET_PROTOCOL_MINIMUM_MTU = 576;
-        public const uint ENET_PROTOCOL_MAXIMUM_MTU = 4096;
+        public const int ENET_PROTOCOL_MAXIMUM_MTU = 4096;
         public const int ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS = 32;
         public const uint ENET_PROTOCOL_MINIMUM_WINDOW_SIZE = 4096;
         public const uint ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE = 65536;
@@ -45,7 +46,7 @@ namespace ENet.NET
         public const int ENET_PEER_UNSEQUENCED_WINDOW_SIZE = 1024;
         public const int ENET_PEER_FREE_UNSEQUENCED_WINDOWS = 32;
         public const int ENET_PEER_RELIABLE_WINDOWS = 16;
-        public const ushort ENET_PEER_RELIABLE_WINDOW_SIZE = 0x1000;
+        public const int ENET_PEER_RELIABLE_WINDOW_SIZE = 0x1000;
         public const int ENET_PEER_FREE_RELIABLE_WINDOWS = 8;
 
         // hosts
@@ -61,45 +62,11 @@ namespace ENet.NET
             Console.Error.WriteLine(message);
         }
 
-        public static ushort ENET_HOST_TO_NET_16(ushort value)
+        public static void printf(string message, params object[] asdf)
         {
-            return (htons(value)); /* macro that converts host to net byte-order of a 16-bit value */
+            Console.WriteLine(message);
         }
 
-        public static uint ENET_HOST_TO_NET_32(uint value)
-        {
-            return (htonl(value)); /* macro that converts host to net byte-order of a 32-bit value */
-        }
-
-        public static ushort ENET_NET_TO_HOST_16(int value)
-        {
-            return (ntohs(value)); /* macro that converts net to host byte-order of a 16-bit value */
-        }
-
-        public static uint ENET_NET_TO_HOST_32(uint value)
-        {
-            return (ntohl(value)); /* macro that converts net to host byte-order of a 32-bit value */
-        }
-
-        public static int ENET_SOCKETSET_EMPTY(int sockset)
-        {
-            return FD_ZERO(&(sockset));
-        }
-
-        public static int ENET_SOCKETSET_ADD(int sockset, int socket)
-        {
-            return FD_SET(socket, &(sockset));
-        }
-
-        public static int ENET_SOCKETSET_REMOVE(int sockset, int socket)
-        {
-            return FD_CLR(socket, &(sockset));
-        }
-
-        public static int ENET_SOCKETSET_CHECK(int sockset, int socket)
-        {
-            return FD_ISSET(socket, &(sockset));
-        }
 
         public static void ENET_UNUSED<T>(T x)
         {
@@ -113,15 +80,22 @@ namespace ENet.NET
                 : (x) - (y);
         }
 
+        public static long ENET_DIFFERENCE(long x, long y)
+        {
+            return (x) < (y)
+                ? (y) - (x)
+                : (x) - (y);
+        }
 
-// =======================================================================//
-// !
-// ! Callbacks
-// !
-// =======================================================================//
 
-        public static ENetCallbacks callbacks = { malloc, free, abort, enet_packet_create, enet_packet_destroy };
-
+        // =======================================================================//
+        // !
+        // ! Callbacks
+        // !
+        // =======================================================================//
+        // todo: @ikpil check
+        //internal static ENetCallbacks callbacks = { malloc, free, abort, enet_packet_create, enet_packet_destroy };
+        internal static ENetCallbacks callbacks;
 
         /**
          * Initializes ENet globally and supplies user-overridden callbacks. Must be called prior to using any functions in ENet. Do not use enet_initialize() if you use this variant. Make sure the ENetCallbacks structure is zeroed out so that any additional callbacks added in future versions will be properly ignored.

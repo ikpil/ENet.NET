@@ -3,7 +3,6 @@ using System.Net.Sockets;
 
 namespace ENet.NET
 {
-
     /** An ENet host for communicating with peers.
      *
      * No fields should be modified unless otherwise stated.
@@ -30,7 +29,7 @@ namespace ENet.NET
         public uint randomSeed;
         public int recalculateBandwidthLimits;
         public ENetPeer[] peers; /* array of peers allocated for this host */
-        public int peerCount; /* number of peers allocated for this host */
+        public long peerCount; /* number of peers allocated for this host */
         public long channelLimit; /* maximum number of channels allowed for connected peers */
         public long serviceTime;
         public ENetList<ENetPeer> dispatchQueue;
@@ -43,14 +42,20 @@ namespace ENet.NET
         public long bufferCount;
         public ENetChecksumCallback checksum; /* callback the user can set to enable packet checksums for this host */
         public ENetCompressor compressor;
-        public byte packetData[2][ENets.ENET_PROTOCOL_MAXIMUM_MTU];
+
+        public byte[][] packetData = new byte[2][]
+        {
+            new byte[ENets.ENET_PROTOCOL_MAXIMUM_MTU],
+            new byte[ENets.ENET_PROTOCOL_MAXIMUM_MTU],
+        };
+
         public ENetAddress receivedAddress;
-        public byte* receivedData;
+        public byte[] receivedData;
         public long receivedDataLength;
-        public uint totalSentData; /* total data sent, user should reset to 0 as needed to prevent overflow */
-        public uint totalSentPackets; /* total UDP packets sent, user should reset to 0 as needed to prevent overflow */
-        public uint totalReceivedData; /* total data received, user should reset to 0 as needed to prevent overflow */
-        public uint totalReceivedPackets; /* total UDP packets received, user should reset to 0 as needed to prevent overflow */
+        public long totalSentData; /* total data sent, user should reset to 0 as needed to prevent overflow */
+        public long totalSentPackets; /* total UDP packets sent, user should reset to 0 as needed to prevent overflow */
+        public long totalReceivedData; /* total data received, user should reset to 0 as needed to prevent overflow */
+        public long totalReceivedPackets; /* total UDP packets received, user should reset to 0 as needed to prevent overflow */
         public ENetInterceptCallback intercept; /* callback the user can set to intercept received raw UDP packets */
         public long connectedPeers;
         public long bandwidthLimitedPeers;

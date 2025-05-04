@@ -1,4 +1,5 @@
 ﻿using System;
+using static ENet.NET.ENetAddresses;
 
 namespace ENet.NET
 {

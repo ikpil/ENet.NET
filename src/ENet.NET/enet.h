@@ -41,57 +41,12 @@
 // =======================================================================//
 
 #if defined(_WIN32)
-    #if defined(_MSC_VER) && defined(ENET_IMPLEMENTATION)
-        #pragma warning (disable: 4267) // long to int conversion
-        #pragma warning (disable: 4244) // 64bit to 32bit int
-        #pragma warning (disable: 4018) // signed/unsigned mismatch
-        #pragma warning (disable: 4146) // unary minus operator applied to unsigned type
-    #endif
 
-    #ifndef ENET_NO_PRAGMA_LINK
-    #ifndef  __GNUC__
-    #pragma comment(lib, "ws2_32.lib")
-    #pragma comment(lib, "winmm.lib")
-    #endif
-    #endif
-
-    #if _MSC_VER >= 1910
-    /* It looks like there were changes as of Visual Studio 2017 and there are no 32/64 bit
-       versions of _InterlockedExchange[operation], only InterlockedExchange[operation]
-       (without leading underscore), so we have to distinguish between compiler versions */
-    #define NOT_UNDERSCORED_INTERLOCKED_EXCHANGE
-    #endif
-
-    #ifdef __GNUC__
-    #if (_WIN32_WINNT < 0x0600)
-    #undef _WIN32_WINNT
-    #define _WIN32_WINNT 0x0600
-    #endif
-    #endif
-
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    #include <mmsystem.h>
-    #include <ws2ipdef.h>
-
-    #include <intrin.h>
-
-    #if defined(_WIN32) && defined(_MSC_VER)
-    #if _MSC_VER < 1900
     typedef struct timespec {
         long tv_sec;
         long tv_nsec;
     };
-    #endif
-    #define CLOCK_MONOTONIC 0
-    #endif
 
-    typedef fd_set ENetSocketSet;
-
-    #define ENET_SOCKETSET_EMPTY(sockset)          FD_ZERO(&(sockset))
-    #define ENET_SOCKETSET_ADD(sockset, socket)    FD_SET(socket, &(sockset))
-    #define ENET_SOCKETSET_REMOVE(sockset, socket) FD_CLR(socket, &(sockset))
-    #define ENET_SOCKETSET_CHECK(sockset, socket)  FD_ISSET(socket, &(sockset))
 #endif
 
 
@@ -108,7 +63,7 @@ static const struct in6_addr enet_v6_localhost = {{{ 0x00, 0x00, 0x00, 0x00, 0x0
 #define ENET_PORT_ANY       0
 
 
-    #define in6_equal(in6_addr_a, in6_addr_b) (memcmp(&in6_addr_a, &in6_addr_b, sizeof(struct in6_addr)) == 0)
+#define in6_equal(in6_addr_a, in6_addr_b) (memcmp(&in6_addr_a, &in6_addr_b, sizeof(struct in6_addr)) == 0)
 
 
 

@@ -5,7 +5,7 @@
         public ENetListNode<ENetOutgoingCommand> outgoingCommandList;
         public ushort reliableSequenceNumber;
         public ushort unreliableSequenceNumber;
-        public uint sentTime;
+        public long sentTime;
         public uint roundTripTimeout;
         public uint queueTime;
         public uint fragmentOffset;

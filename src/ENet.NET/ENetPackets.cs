@@ -1,4 +1,7 @@
-﻿namespace ENet.NET
+﻿using System.Runtime.InteropServices;
+using static ENet.NET.ENets;
+
+namespace ENet.NET
 {
     public static class ENetPackets
     {
@@ -18,7 +21,7 @@
         public static ENetPacket enet_packet_create(byte[] data, long dataLength, uint flags)
         {
             ENetPacket packet;
-            if (0 != (flags & (uint)ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
+            if (0 != (flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
             {
                 packet = enet_malloc_packet(0);
                 if (packet == null)
@@ -37,7 +40,7 @@
                 }
 
                 // todo : @ikpil check
-                packet.data = (byte*)packet + sizeof(ENetPacket);
+                packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
 
                 if (data != null)
                 {
@@ -64,7 +67,7 @@
         {
             ENetPacket newPacket = null;
 
-            if (dataLength <= packet.dataLength || 0 != (packet.flags & (uint)ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
+            if (dataLength <= packet.dataLength || 0 != (packet.flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
             {
                 packet.dataLength = dataLength;
 
@@ -75,8 +78,8 @@
             if (newPacket == null)
                 return null;
 
-            memcpy(newPacket, packet, sizeof(ENetPacket) + packet.dataLength);
-            newPacket.data = (byte*)newPacket + sizeof(ENetPacket);
+            memcpy(newPacket, packet, Marshal.SizeOf<ENetPacket>() + packet.dataLength);
+            newPacket.data = (byte*)newPacket + Marshal.SizeOf<ENetPacket>();
             newPacket.dataLength = dataLength;
             enet_free(packet);
 
@@ -86,7 +89,7 @@
         public static ENetPacket enet_packet_create_offset(byte[] data, long dataLength, long dataOffset, uint flags)
         {
             ENetPacket packet;
-            if (0 != (flags & (uint)ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
+            if (0 != (flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
             {
                 packet = enet_malloc_packet(0);
                 if (packet == null)
@@ -104,7 +107,7 @@
                     return null;
                 }
 
-                packet.data = (byte*)packet + sizeof(ENetPacket);
+                packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
 
                 if (data != null)
                 {

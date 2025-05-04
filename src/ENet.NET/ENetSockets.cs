@@ -1,10 +1,13 @@
-﻿using System.Net.Sockets;
+﻿using System;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using static ENet.NET.ENetAddresses;
 
 namespace ENet.NET
 {
     public static class ENetSockets
     {
-        public static int enet_socket_bind(Socket socket, ref ENetAddress address)
+        public static int enet_socket_bind(Socket socket, ENetAddress address)
         {
             struct sockaddr_in6 sin = { 0 };
             sin.sin6_family = AF_INET6;
@@ -25,7 +28,7 @@ namespace ENet.NET
             return bind(socket, (struct sockaddr *) &sin, sizeof(struct sockaddr_in6)) == SOCKET_ERROR ? -1 : 0;
         }
 
-        public static int enet_socket_get_address(Socket socket, ref ENetAddress address)
+        public static int enet_socket_get_address(Socket socket, ENetAddress address)
         {
             struct sockaddr_in6 sin = { 0 };
             int sinLength = sizeof(struct sockaddr_in6);
@@ -107,19 +110,19 @@ namespace ENet.NET
             return result == SOCKET_ERROR ? -1 : 0;
         } /* enet_socket_set_option */
 
-        public static int enet_socket_get_option(Socket socket, ENetSocketOption option, int* value)
+        public static int enet_socket_get_option(Socket socket, ENetSocketOption option, out int value)
         {
             int result = SOCKET_ERROR, len;
 
             switch (option)
             {
                 case ENetSocketOption.ENET_SOCKOPT_ERROR:
-                    len = sizeof(int);
+                    len = Marshal.SizeOf<int>();
                     result = getsockopt(socket, SOL_SOCKET, SO_ERROR, (char*)value, &len);
                     break;
 
                 case ENetSocketOption.ENET_SOCKOPT_TTL:
-                    len = sizeof(int);
+                    len = Marshal.SizeOf<int>();
                     result = getsockopt(socket, IPPROTO_IP, IP_TTL, (char*)value, &len);
                     break;
 
@@ -130,7 +133,7 @@ namespace ENet.NET
             return result == SOCKET_ERROR ? -1 : 0;
         }
 
-        public static int enet_socket_connect(Socket socket,  const ENetAddress* address) {
+        public static int enet_socket_connect(Socket socket,  ENetAddress address) {
             struct sockaddr_in6 sin = { 0 };
             int result;
 
@@ -148,7 +151,7 @@ namespace ENet.NET
             return 0;
         }
 
-        public static Socket enet_socket_accept(Socket socket, ENetAddress* address)
+        public static Socket enet_socket_accept(Socket socket, ENetAddress address)
         {
             SOCKET result;
             struct sockaddr_in6 sin = { 0 };
@@ -184,7 +187,7 @@ namespace ENet.NET
             }
         }
 
-        public static int enet_socket_send(Socket socket, ref ENetAddress address, ref ENetBuffer buffers, long bufferCount)
+        public static int enet_socket_send(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
             struct sockaddr_in6 sin = { 0 };
             DWORD sentLength = 0;
@@ -213,7 +216,7 @@ namespace ENet.NET
             return (int)sentLength;
         }
 
-        public static int enet_socket_receive(Socket socket, ENetAddress* address, ENetBuffer* buffers, long bufferCount)
+        public static int enet_socket_receive(Socket socket, ENetAddress address, ref ENetBuffer buffers, long bufferCount)
         {
             INT sinLength = sizeof(struct sockaddr_in6);
             DWORD flags = 0, recvLength = 0;

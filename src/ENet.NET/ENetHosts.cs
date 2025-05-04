@@ -1,9 +1,13 @@
 ﻿using System;
+using System.Net;
+using System.Runtime.InteropServices;
 using static ENet.NET.ENets;
 using static ENet.NET.ENetSockets;
 using static ENet.NET.ENetTimes;
 using static ENet.NET.ENetProtocols;
 using static ENet.NET.ENetPeers;
+using static ENet.NET.ENetLists;
+using static ENet.NET.ENetAddresses;
 
 namespace ENet.NET
 {
@@ -30,12 +34,12 @@ namespace ENet.NET
          *  the window size of a connection which limits the amount of reliable packets that may be in transit
          *  at any given time.
          */
-        public static ENetHost enet_host_create(ref ENetAddress address, long peerCount, long channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
+        public static ENetHost enet_host_create(ENetAddress address, long peerCount, long channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
         {
             ENetHost host = null;
             ENetPeer currentPeer = null;
 
-            if (peerCount > ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID)
+            if (peerCount > ENET_PROTOCOL_MAXIMUM_PEER_ID)
             {
                 return null;
             }
@@ -79,34 +83,34 @@ namespace ENet.NET
 
             enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_NONBLOCK, 1);
             enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_BROADCAST, 1);
-            enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_RCVBUF, ENets.ENET_HOST_RECEIVE_BUFFER_SIZE);
-            enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_SNDBUF, ENets.ENET_HOST_SEND_BUFFER_SIZE);
+            enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_RCVBUF, ENET_HOST_RECEIVE_BUFFER_SIZE);
+            enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_SNDBUF, ENET_HOST_SEND_BUFFER_SIZE);
             enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY, 0);
 
-            if (address != null && enet_socket_get_address(host.socket, ref host.address) < 0)
+            if (address != null && enet_socket_get_address(host.socket, host.address) < 0)
             {
-                host.address = *address;
+                host.address = address.Clone();
             }
 
-            if (!channelLimit || channelLimit > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
+            if (0 >= channelLimit || channelLimit > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
             {
-                channelLimit = ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
+                channelLimit = ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
             }
 
-            host.randomSeed = (uint)((uintptr_t)host % uint.MaxValue);
-            host.randomSeed += enet_host_random_seed();
+            host.randomSeed = (uint)host.GetHashCode() % uint.MaxValue;
+            host.randomSeed += (uint)enet_host_random_seed();
             host.randomSeed = (host.randomSeed << 16) | (host.randomSeed >> 16);
             host.channelLimit = channelLimit;
             host.incomingBandwidth = incomingBandwidth;
             host.outgoingBandwidth = outgoingBandwidth;
             host.bandwidthThrottleEpoch = 0;
             host.recalculateBandwidthLimits = 0;
-            host.mtu = ENets.ENET_HOST_DEFAULT_MTU;
+            host.mtu = ENET_HOST_DEFAULT_MTU;
             host.peerCount = peerCount;
             host.commandCount = 0;
             host.bufferCount = 0;
             host.checksum = null;
-            host.receivedAddress.host = ENET_HOST_ANY;
+            host.receivedAddress.host = IPAddress.IPv6Any;
             host.receivedAddress.port = 0;
             host.receivedData = null;
             host.receivedDataLength = 0;
@@ -117,9 +121,9 @@ namespace ENet.NET
             host.totalQueued = 0;
             host.connectedPeers = 0;
             host.bandwidthLimitedPeers = 0;
-            host.duplicatePeers = ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID;
-            host.maximumPacketSize = ENets.ENET_HOST_DEFAULT_MAXIMUM_PACKET_SIZE;
-            host.maximumWaitingData = ENets.ENET_HOST_DEFAULT_MAXIMUM_WAITING_DATA;
+            host.duplicatePeers = ENET_PROTOCOL_MAXIMUM_PEER_ID;
+            host.maximumPacketSize = ENET_HOST_DEFAULT_MAXIMUM_PACKET_SIZE;
+            host.maximumWaitingData = ENET_HOST_DEFAULT_MAXIMUM_WAITING_DATA;
             host.compressor.context = null;
             host.compressor.compress = null;
             host.compressor.decompress = null;
@@ -128,10 +132,11 @@ namespace ENet.NET
 
             enet_list_clear(ref host.dispatchQueue);
 
-            for (currentPeer = host.peers; currentPeer < &host.peers[host.peerCount]; ++currentPeer)
+            for (int i = 0; i < host.peerCount; ++i)
             {
+                currentPeer = host.peers[i];
                 currentPeer.host = host;
-                currentPeer.incomingPeerID = currentPeer - host.peers;
+                currentPeer.incomingPeerID = (ushort)i;
                 currentPeer.outgoingSessionID = currentPeer.incomingSessionID = 0xFF;
                 currentPeer.data = null;
 
@@ -192,18 +197,18 @@ namespace ENet.NET
          *  @remarks The peer returned will have not completed the connection until enet_host_service()
          *  notifies of an ENET_EVENT_TYPE_CONNECT event for the peer.
          */
-        public static ENetPeer enet_host_connect(ENetHost host, ref ENetAddress address, int channelCount, uint data)
+        public static ENetPeer enet_host_connect(ENetHost host, ENetAddress address, int channelCount, uint data)
         {
             ENetPeer currentPeer = null;
             ENetChannel channel = null;
 
-            if (channelCount < ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT)
+            if (channelCount < ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT)
             {
-                channelCount = ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT;
+                channelCount = ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT;
             }
-            else if (channelCount > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
+            else if (channelCount > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
             {
-                channelCount = ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
+                channelCount = ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
             }
 
             int currentPeerIdx = 0;
@@ -235,20 +240,20 @@ namespace ENet.NET
 
             if (host.outgoingBandwidth == 0)
             {
-                currentPeer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+                currentPeer.windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             }
             else
             {
-                currentPeer.windowSize = (host.outgoingBandwidth / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+                currentPeer.windowSize = (host.outgoingBandwidth / ENET_PEER_WINDOW_SIZE_SCALE) * ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             }
 
-            if (currentPeer.windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE)
+            if (currentPeer.windowSize < ENET_PROTOCOL_MINIMUM_WINDOW_SIZE)
             {
-                currentPeer.windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+                currentPeer.windowSize = ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             }
-            else if (currentPeer.windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE)
+            else if (currentPeer.windowSize > ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE)
             {
-                currentPeer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+                currentPeer.windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             }
 
             int channelIdx = 0;
@@ -264,23 +269,23 @@ namespace ENet.NET
                 enet_list_clear(ref channel.incomingUnreliableCommands);
 
                 channel.usedReliableWindows = 0;
-                memset(channel.reliableWindows, 0, sizeof(channel.reliableWindows));
+                Array.Fill(channel.reliableWindows, (ushort)0);
             }
 
             ENetProtocol command = new ENetProtocol();
-            command.header.command = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_CONNECT | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
+            command.header.command = ENetProtocolCommand.ENET_PROTOCOL_COMMAND_CONNECT | ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
             command.header.channelID = 0xFF;
             command.connect.outgoingPeerID = ENET_HOST_TO_NET_16(currentPeer.incomingPeerID);
             command.connect.incomingSessionID = currentPeer.incomingSessionID;
             command.connect.outgoingSessionID = currentPeer.outgoingSessionID;
-            command.connect.mtu = ENET_HOST_TO_NET_32(currentPeer.mtu);
-            command.connect.windowSize = ENET_HOST_TO_NET_32(currentPeer.windowSize);
+            command.connect.mtu = ENET_HOST_TO_NET_32((uint)currentPeer.mtu);
+            command.connect.windowSize = ENET_HOST_TO_NET_32((uint)currentPeer.windowSize);
             command.connect.channelCount = ENET_HOST_TO_NET_32((uint)channelCount);
-            command.connect.incomingBandwidth = ENET_HOST_TO_NET_32(host.incomingBandwidth);
-            command.connect.outgoingBandwidth = ENET_HOST_TO_NET_32(host.outgoingBandwidth);
-            command.connect.packetThrottleInterval = ENET_HOST_TO_NET_32(currentPeer.packetThrottleInterval);
-            command.connect.packetThrottleAcceleration = ENET_HOST_TO_NET_32(currentPeer.packetThrottleAcceleration);
-            command.connect.packetThrottleDeceleration = ENET_HOST_TO_NET_32(currentPeer.packetThrottleDeceleration);
+            command.connect.incomingBandwidth = ENET_HOST_TO_NET_32((uint)host.incomingBandwidth);
+            command.connect.outgoingBandwidth = ENET_HOST_TO_NET_32((uint)host.outgoingBandwidth);
+            command.connect.packetThrottleInterval = ENET_HOST_TO_NET_32((uint)currentPeer.packetThrottleInterval);
+            command.connect.packetThrottleAcceleration = ENET_HOST_TO_NET_32((uint)currentPeer.packetThrottleAcceleration);
+            command.connect.packetThrottleDeceleration = ENET_HOST_TO_NET_32((uint)currentPeer.packetThrottleDeceleration);
             command.connect.connectID = currentPeer.connectID;
             command.connect.data = ENET_HOST_TO_NET_32(data);
 
@@ -324,12 +329,12 @@ namespace ENet.NET
          *  @retval <0 error
          *  @sa enet_socket_send
          */
-        public static int enet_host_send_raw(ENetHost host, ref ENetAddress address, byte[] data, long dataLength)
+        public static int enet_host_send_raw(ENetHost host, ENetAddress address, byte[] data, long dataLength)
         {
             ENetBuffer buffer = new ENetBuffer();
             buffer.data = data;
             buffer.dataLength = dataLength;
-            return enet_socket_send(host.socket, ref address, ref buffer, 1);
+            return enet_socket_send(host.socket, address, ref buffer, 1);
         }
 
         /** Sends raw data to specified address with extended arguments. Allows to send only part of data, handy for other programming languages.
@@ -343,12 +348,13 @@ namespace ENet.NET
          *  @retval <0 error
          *  @sa enet_socket_send
          */
-        public static int enet_host_send_raw_ex(ENetHost host, ref ENetAddress address, ArraySegment<byte> data, int skipBytes, long bytesToSend)
+        public static int enet_host_send_raw_ex(ENetHost host, ENetAddress address, ArraySegment<byte> data, int skipBytes, long bytesToSend)
         {
+            // todo : check @ikpil
             ENetBuffer buffer;
             buffer.data = data.Slice(skipBytes);
             buffer.dataLength = bytesToSend;
-            return enet_socket_send(host.socket, ref address, ref buffer, 1);
+            return enet_socket_send(host.socket, address, ref buffer, 1);
         }
 
         /** Sets intercept callback for the host.
@@ -387,9 +393,9 @@ namespace ENet.NET
          */
         public static void enet_host_channel_limit(ENetHost host, long channelLimit)
         {
-            if (0 >= channelLimit || channelLimit > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
+            if (0 >= channelLimit || channelLimit > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
             {
-                channelLimit = ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
+                channelLimit = ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT;
             }
 
             host.channelLimit = channelLimit;
@@ -411,18 +417,18 @@ namespace ENet.NET
 
         public static void enet_host_bandwidth_throttle(ENetHost host)
         {
-            uint timeCurrent = enet_time_get();
-            uint elapsedTime = timeCurrent - host.bandwidthThrottleEpoch;
-            uint peersRemaining = (uint)host.connectedPeers;
-            uint dataTotal = uint.MaxValue;
-            uint bandwidth = uint.MaxValue;
-            uint throttle = 0;
-            uint bandwidthLimit = 0;
+            long timeCurrent = enet_time_get();
+            long elapsedTime = timeCurrent - host.bandwidthThrottleEpoch;
+            long peersRemaining = host.connectedPeers;
+            long dataTotal = uint.MaxValue;
+            long bandwidth = uint.MaxValue;
+            long throttle = 0;
+            long bandwidthLimit = 0;
 
             int needsAdjustment = host.bandwidthLimitedPeers > 0 ? 1 : 0;
             ENetPeer peer;
 
-            if (elapsedTime < ENets.ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL)
+            if (elapsedTime < ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL)
             {
                 return;
             }
@@ -462,17 +468,17 @@ namespace ENet.NET
 
                 if (dataTotal <= bandwidth)
                 {
-                    throttle = ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
+                    throttle = ENET_PEER_PACKET_THROTTLE_SCALE;
                 }
                 else
                 {
-                    throttle = (bandwidth * ENets.ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
+                    throttle = (bandwidth * ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
                 }
 
                 for (int peerIdx = 0; peerIdx < host.peerCount; ++peerIdx)
                 {
                     peer = host.peers[peerIdx];
-                    uint peerBandwidth;
+                    long peerBandwidth;
 
                     if ((peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER) ||
                         peer.incomingBandwidth == 0 ||
@@ -483,12 +489,12 @@ namespace ENet.NET
                     }
 
                     peerBandwidth = (peer.incomingBandwidth * elapsedTime) / 1000;
-                    if ((throttle * peer.outgoingDataTotal) / ENets.ENET_PEER_PACKET_THROTTLE_SCALE <= peerBandwidth)
+                    if ((throttle * peer.outgoingDataTotal) / ENET_PEER_PACKET_THROTTLE_SCALE <= peerBandwidth)
                     {
                         continue;
                     }
 
-                    peer.packetThrottleLimit = (peerBandwidth * ENets.ENET_PEER_PACKET_THROTTLE_SCALE) / peer.outgoingDataTotal;
+                    peer.packetThrottleLimit = (peerBandwidth * ENET_PEER_PACKET_THROTTLE_SCALE) / peer.outgoingDataTotal;
 
                     if (peer.packetThrottleLimit == 0)
                     {
@@ -516,11 +522,11 @@ namespace ENet.NET
             {
                 if (dataTotal <= bandwidth)
                 {
-                    throttle = ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
+                    throttle = ENET_PEER_PACKET_THROTTLE_SCALE;
                 }
                 else
                 {
-                    throttle = (bandwidth * ENets.ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
+                    throttle = (bandwidth * ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
                 }
 
                 for (int peerIdx = 0; peerIdx < host.peerCount; ++peerIdx)
@@ -595,17 +601,17 @@ namespace ENet.NET
                     }
 
                     ENetProtocol command = new ENetProtocol();
-                    command.header.command = (int)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_BANDWIDTH_LIMIT | (int)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
+                    command.header.command = ENetProtocolCommand.ENET_PROTOCOL_COMMAND_BANDWIDTH_LIMIT | ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
                     command.header.channelID = 0xFF;
-                    command.bandwidthLimit.outgoingBandwidth = ENET_HOST_TO_NET_32(host.outgoingBandwidth);
+                    command.bandwidthLimit.outgoingBandwidth = ENET_HOST_TO_NET_32((uint)host.outgoingBandwidth);
 
                     if (peer.incomingBandwidthThrottleEpoch == timeCurrent)
                     {
-                        command.bandwidthLimit.incomingBandwidth = ENET_HOST_TO_NET_32(peer.outgoingBandwidth);
+                        command.bandwidthLimit.incomingBandwidth = ENET_HOST_TO_NET_32((uint)peer.outgoingBandwidth);
                     }
                     else
                     {
-                        command.bandwidthLimit.incomingBandwidth = ENET_HOST_TO_NET_32(bandwidthLimit);
+                        command.bandwidthLimit.incomingBandwidth = ENET_HOST_TO_NET_32((uint)bandwidthLimit);
                     }
 
                     enet_peer_queue_outgoing_command(peer, ref command, null, 0, 0);
@@ -665,7 +671,7 @@ namespace ENet.NET
                         return 1;
 
                     case -1:
-#if ENET_DEBUG
+#if DEBUG
                     perror("Error dispatching incoming packets");
 #endif
 
@@ -681,7 +687,7 @@ namespace ENet.NET
 
             do
             {
-                if (ENET_TIME_DIFFERENCE(host.serviceTime, host.bandwidthThrottleEpoch) >= ENets.ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL)
+                if (ENET_TIME_DIFFERENCE(host.serviceTime, host.bandwidthThrottleEpoch) >= ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL)
                 {
                     enet_host_bandwidth_throttle(host);
                 }
@@ -692,7 +698,7 @@ namespace ENet.NET
                         return 1;
 
                     case -1:
-#if ENET_DEBUG
+#if DEBUG
                     perror("Error sending outgoing packets");
 #endif
 
@@ -708,7 +714,7 @@ namespace ENet.NET
                         return 1;
 
                     case -1:
-#if ENET_DEBUG
+#if DEBUG
                     perror("Error receiving incoming packets");
 #endif
 
@@ -724,7 +730,7 @@ namespace ENet.NET
                         return 1;
 
                     case -1:
-#if ENET_DEBUG
+#if DEBUG
                     perror("Error sending outgoing packets");
 #endif
 
@@ -742,7 +748,7 @@ namespace ENet.NET
                             return 1;
 
                         case -1:
-#if ENET_DEBUG
+#if DEBUG
                         perror("Error dispatching incoming packets");
 #endif
 
@@ -782,7 +788,19 @@ namespace ENet.NET
 
         public static long enet_host_random_seed()
         {
-            return (long)time(null);
+            return DateTime.UtcNow.Ticks;
+        }
+
+        /** Sends any queued packets on the host specified to its designated peers.
+        *
+        *  @param host   host to flush
+        *  @remarks this function need only be used in circumstances where one wishes to send queued packets earlier than in a call to enet_host_service().
+        *  @ingroup host
+        */
+        public static void enet_host_flush(ENetHost host)
+        {
+            host.serviceTime = enet_time_get();
+            enet_protocol_send_outgoing_commands(host, null, 0);
         }
     }
 }
