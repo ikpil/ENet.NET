@@ -1,7 +1,15 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using static ENet.NET.ENetLists;
+using static ENet.NET.ENets;
+using static ENet.NET.ENetPeers;
+using static ENet.NET.ENetPackets;
+using static ENet.NET.ENetSockets;
+using static ENet.NET.ENetTimes;
 
-namespace ENet.NET;
+namespace ENet.NET
+{
 
 public static class ENetProtocols
 {
@@ -443,7 +451,7 @@ public static class ENetProtocols
     } /* enet_protocol_handle_connect */
 
     public static int enet_protocol_handle_send_reliable(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
-        ulong dataLength;
+        long dataLength;
 
         if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER)) {
             return -1;
@@ -465,7 +473,7 @@ public static class ENetProtocols
 
     public static int enet_protocol_handle_send_unsequenced(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
         uint unsequencedGroup, index;
-        ulong dataLength;
+        long dataLength;
 
         if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER)) {
             return -1;
@@ -507,7 +515,7 @@ public static class ENetProtocols
     } /* enet_protocol_handle_send_unsequenced */
 
     public static int enet_protocol_handle_send_unreliable(ENetHost host, ENetPeer peer, ref ENetProtocol command, byte **currentData) {
-        ulong dataLength;
+        long dataLength;
 
         if (command.header.channelID >= peer.channelCount ||
           (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER))
@@ -946,7 +954,7 @@ public static class ENetProtocols
 
     public static int enet_protocol_handle_verify_connect(ENetHost host, ENetEvent @event, ENetPeer peer, ref ENetProtocol command) {
         uint mtu, windowSize;
-        ulong channelCount;
+        long channelCount;
 
         if (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTING) {
             return 0;
@@ -1070,7 +1078,7 @@ public static class ENetProtocols
         }
 
         if (flags & ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_COMPRESSED) {
-            ulong originalSize;
+            long originalSize;
             if (host.compressor.context == null || host.compressor.decompress == null) {
                 return 0;
             }
@@ -1117,7 +1125,7 @@ public static class ENetProtocols
 
         while (currentData < &host.receivedData[host.receivedDataLength]) {
             byte commandNumber;
-            ulong commandSize;
+            long commandSize;
 
             command = (ENetProtocol *) currentData;
 
@@ -1224,7 +1232,7 @@ public static class ENetProtocols
                     goto commandError;
             }
 
-            assert(peer);
+            Debug.Assert(null != peer);
             if ((command.header.command & (byte)ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) != 0) {
                 ushort sentTime;
 
@@ -1425,14 +1433,14 @@ public static class ENetProtocols
         return 0;
     } /* enet_protocol_check_timeouts */
 
-    public static int enet_protocol_check_outgoing_commands(ENetHost host, ENetPeer peer, ENetList<ENetOutgoingCommand> sentUnreliableCommands) {
+    public static int enet_protocol_check_outgoing_commands(ENetHost host, ENetPeer peer, ref ENetList<ENetOutgoingCommand> sentUnreliableCommands) {
         ref ENetProtocol command = ref host.commands[host.commandCount];
         ref ENetBuffer buffer    = ref host.buffers[host.bufferCount];
         ENetOutgoingCommand outgoingCommand = null;
         ENetListNode<ENetOutgoingCommand> currentCommand, currentSendReliableCommand = null;
         ENetChannel channel = null;
         ushort reliableWindow = 0;
-        ulong commandSize=0;
+        long commandSize=0;
         int windowWrap = 0, canPing = 1;
 
         currentCommand = enet_list_begin(ref peer.outgoingCommands);
@@ -1608,7 +1616,7 @@ public static class ENetProtocols
         ];
         ref ENetProtocolHeader header = (ENetProtocolHeader) headerData;
         int sentLength = 0;
-        ulong shouldCompress = 0;
+        long shouldCompress = 0;
         ENetList<ENetOutgoingCommand> sentUnreliableCommands;
         int sendPass = 0, continueSending = 0;
         ENetPeer currentPeer = null;
@@ -1644,9 +1652,9 @@ public static class ENetProtocols
                     }
                 }
 
-                if (((enet_list_empty (& currentPeer.outgoingCommands) &&
-                    enet_list_empty (& currentPeer.outgoingSendReliableCommands)) ||
-                    enet_protocol_check_outgoing_commands (host, currentPeer, sentUnreliableCommands)) &&
+                if (((enet_list_empty (ref currentPeer.outgoingCommands) &&
+                    enet_list_empty (ref currentPeer.outgoingSendReliableCommands)) ||
+                    enet_protocol_check_outgoing_commands (host, currentPeer, ref sentUnreliableCommands)) &&
                     enet_list_empty(ref currentPeer.sentReliableCommands) &&
                     ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.lastReceiveTime) >= currentPeer.pingInterval &&
                     currentPeer.mtu - host.packetSize >= sizeof(ENetProtocolPing)
@@ -1693,9 +1701,9 @@ public static class ENetProtocols
                 }
 
                 shouldCompress = 0;
-                if (host.compressor.context != null && host.compressor.CompressorCompress != null) {
-                    ulong originalSize = host.packetSize - sizeof(ENetProtocolHeader),
-                      compressedSize    = host.compressor.CompressorCompress(host.compressor.context, &host.buffers[1], host.bufferCount - 1, originalSize, host.packetData[1], originalSize);
+                if (host.compressor.context != null && host.compressor.compress != null) {
+                    long originalSize = host.packetSize - sizeof(ENetProtocolHeader),
+                      compressedSize    = host.compressor.compress(host.compressor.context, &host.buffers[1], host.bufferCount - 1, originalSize, host.packetData[1], originalSize);
                     if (compressedSize > 0 && compressedSize < originalSize) {
                         host.headerFlags |= ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_COMPRESSED;
                         shouldCompress     = compressedSize;
@@ -1780,4 +1788,5 @@ public static class ENetProtocols
         enet_protocol_send_outgoing_commands(host, null, 0);
     }
 
+}
 }

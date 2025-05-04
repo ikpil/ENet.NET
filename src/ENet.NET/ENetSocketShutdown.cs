@@ -1,9 +1,9 @@
-﻿namespace ENet.NET;
-
-public enum ENetSocketShutdown
+﻿namespace ENet.NET
 {
-    ENET_SOCKET_SHUTDOWN_READ       = 0,
-    ENET_SOCKET_SHUTDOWN_WRITE      = 1,
-    ENET_SOCKET_SHUTDOWN_READ_WRITE = 2
-
+    public enum ENetSocketShutdown
+    {
+        ENET_SOCKET_SHUTDOWN_READ = 0,
+        ENET_SOCKET_SHUTDOWN_WRITE = 1,
+        ENET_SOCKET_SHUTDOWN_READ_WRITE = 2
+    }
 }

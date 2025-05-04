@@ -1,37 +1,38 @@
-﻿namespace ENet.NET;
-
-/**
- * An ENet event type, as specified in @ref ENetEvent.
- */
-public enum ENetEventType
+﻿namespace ENet.NET
 {
-    /** no event occurred within the specified time limit */
-    ENET_EVENT_TYPE_NONE = 0,
-
-    /** a connection request initiated by enet_host_connect has completed.
-     * The peer field contains the peer which successfully connected.
+    /**
+     * An ENet event type, as specified in @ref ENetEvent.
      */
-    ENET_EVENT_TYPE_CONNECT = 1,
+    public enum ENetEventType
+    {
+        /** no event occurred within the specified time limit */
+        ENET_EVENT_TYPE_NONE = 0,
 
-    /** a peer has disconnected.  This event is generated on a successful
-     * completion of a disconnect initiated by enet_peer_disconnect, if
-     * a peer has timed out.  The peer field contains the peer
-     * which disconnected. The data field contains user supplied data
-     * describing the disconnection, or 0, if none is available.
-     */
-    ENET_EVENT_TYPE_DISCONNECT = 2,
+        /** a connection request initiated by enet_host_connect has completed.
+         * The peer field contains the peer which successfully connected.
+         */
+        ENET_EVENT_TYPE_CONNECT = 1,
 
-    /** a packet has been received from a peer.  The peer field specifies the
-     * peer which sent the packet.  The channelID field specifies the channel
-     * number upon which the packet was received.  The packet field contains
-     * the packet that was received; this packet must be destroyed with
-     * enet_packet_destroy after use.
-     */
-    ENET_EVENT_TYPE_RECEIVE = 3,
+        /** a peer has disconnected.  This event is generated on a successful
+         * completion of a disconnect initiated by enet_peer_disconnect, if
+         * a peer has timed out.  The peer field contains the peer
+         * which disconnected. The data field contains user supplied data
+         * describing the disconnection, or 0, if none is available.
+         */
+        ENET_EVENT_TYPE_DISCONNECT = 2,
 
-    /** a peer is disconnected because the host didn't receive the acknowledgment
-     * packet within certain maximum time out. The reason could be because of bad
-     * network connection or  host crashed.
-     */
-    ENET_EVENT_TYPE_DISCONNECT_TIMEOUT = 4,
+        /** a packet has been received from a peer.  The peer field specifies the
+         * peer which sent the packet.  The channelID field specifies the channel
+         * number upon which the packet was received.  The packet field contains
+         * the packet that was received; this packet must be destroyed with
+         * enet_packet_destroy after use.
+         */
+        ENET_EVENT_TYPE_RECEIVE = 3,
+
+        /** a peer is disconnected because the host didn't receive the acknowledgment
+         * packet within certain maximum time out. The reason could be because of bad
+         * network connection or  host crashed.
+         */
+        ENET_EVENT_TYPE_DISCONNECT_TIMEOUT = 4,
+    }
 }

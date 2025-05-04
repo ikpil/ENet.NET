@@ -1,6 +1,7 @@
-﻿namespace ENet.NET;
-
-public struct ENetList<T>
+﻿namespace ENet.NET
 {
-    public ENetListNode<T> sentinel;
+    public struct ENetList<T>
+    {
+        public ENetListNode<T> sentinel;
+    }
 }

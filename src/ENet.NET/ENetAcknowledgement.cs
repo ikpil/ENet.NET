@@ -1,9 +1,9 @@
-﻿
-
-namespace ENet.NET;
-
-public class ENetAcknowledgement
+﻿namespace ENet.NET
 {
-    public ENetListNode acknowledgementList;
-    public uint sentTime;
-    public ENetProtocol command;
+    public class ENetAcknowledgement
+    {
+        public ENetListNode acknowledgementList;
+        public uint sentTime;
+        public ENetProtocol command;
+    }
+}

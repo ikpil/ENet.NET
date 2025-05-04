@@ -1,4 +1,5 @@
-﻿namespace ENet.NET;
+﻿namespace ENet.NET
+{
 
 public static class ENetAddresses
 {
@@ -71,7 +72,7 @@ public static class ENetAddresses
         return enet_in6addr_lookup_host(name, false, address);
     }
 
-    public static int enet_address_get_host_ip_new(const ENetAddress *address, char *name, ulong nameLength) {
+    public static int enet_address_get_host_ip_new(const ENetAddress *address, char *name, long nameLength) {
         if (IN6_IS_ADDR_V4MAPPED(&address.host)) {
             struct in_addr buf;
             enet_inaddr_map6to4(&address.host, &buf);
@@ -89,7 +90,7 @@ public static class ENetAddresses
         return 0;
     } /* enet_address_get_host_ip_new */
 
-    public static int enet_address_get_host_new(const ENetAddress *address, char *name, ulong nameLength) {
+    public static int enet_address_get_host_new(const ENetAddress *address, char *name, long nameLength) {
         struct sockaddr_in6 sin;
         memset(&sin, 0, sizeof(struct sockaddr_in6));
 
@@ -160,7 +161,7 @@ public static class ENetAddresses
         return 0;
     }
 
-    public static int enet_address_get_host_ip_old(const ENetAddress *address, char *name, ulong nameLength) {
+    public static int enet_address_get_host_ip_old(const ENetAddress *address, char *name, long nameLength) {
         if (inet_ntop(AF_INET6, (PVOID)&address.host, name, nameLength) == null) {
             return -1;
         }
@@ -168,7 +169,7 @@ public static class ENetAddresses
         return 0;
     }
 
-    public static int enet_address_get_host_old(const ENetAddress *address, char *name, ulong nameLength) {
+    public static int enet_address_get_host_old(const ENetAddress *address, char *name, long nameLength) {
         struct in6_addr in;
         struct hostent *hostEntry = null;
         in = address.host;
@@ -176,7 +177,7 @@ public static class ENetAddresses
         if (hostEntry == null) {
             return enet_address_get_host_ip(address, name, nameLength);
         } else {
-            ulong hostLen = strlen(hostEntry.h_name);
+            long hostLen = strlen(hostEntry.h_name);
             if (hostLen >= nameLength) {
                 return -1;
             }
@@ -185,4 +186,5 @@ public static class ENetAddresses
         return 0;
     }
  
+}
 }

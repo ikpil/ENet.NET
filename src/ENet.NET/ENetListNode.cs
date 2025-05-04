@@ -1,8 +1,10 @@
-﻿namespace ENet.NET;
-
-public class ENetListNode<T>
+﻿namespace ENet.NET
 {
-    public T value;
-    public ENetListNode<T> next;
-    public ENetListNode<T> previous;
+
+    public class ENetListNode<T>
+    {
+        public T value;
+        public ENetListNode<T> next;
+        public ENetListNode<T> previous;
+    }
 }

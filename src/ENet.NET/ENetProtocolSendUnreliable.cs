@@ -1,11 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace ENet.NET;
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct ENetProtocolSendUnreliable
+namespace ENet.NET
 {
-    public ENetProtocolCommandHeader header;
-    public ushort unreliableSequenceNumber;
-    public ushort dataLength;
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct ENetProtocolSendUnreliable
+    {
+        public ENetProtocolCommandHeader header;
+        public ushort unreliableSequenceNumber;
+        public ushort dataLength;
+    }
 }

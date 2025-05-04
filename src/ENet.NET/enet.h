@@ -32,15 +32,6 @@
  * SOFTWARE.
  *
  */
-#ifndef ENET_INCLUDE_H
-#define ENET_INCLUDE_H
-
-#include <assert.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <time.h>
-
 
 
 // =======================================================================//
@@ -51,7 +42,7 @@
 
 #if defined(_WIN32)
     #if defined(_MSC_VER) && defined(ENET_IMPLEMENTATION)
-        #pragma warning (disable: 4267) // ulong to int conversion
+        #pragma warning (disable: 4267) // long to int conversion
         #pragma warning (disable: 4244) // 64bit to 32bit int
         #pragma warning (disable: 4018) // signed/unsigned mismatch
         #pragma warning (disable: 4146) // unary minus operator applied to unsigned type
@@ -95,32 +86,6 @@
     #define CLOCK_MONOTONIC 0
     #endif
 
-    typedef SOCKET Socket;
-    #define null INVALID_SOCKET
-
-    #define ENET_HOST_TO_NET_16(value) (htons(value))
-    #define ENET_HOST_TO_NET_32(value) (htonl(value))
-
-    #define ENET_NET_TO_HOST_16(value) (ntohs(value))
-    #define ENET_NET_TO_HOST_32(value) (ntohl(value))
-
-    typedef struct {
-        ulong dataLength;
-        void * data;
-    } ENetBuffer;
-
-    #define ENET_CALLBACK __cdecl
-
-    #ifdef ENET_DLL
-    #ifdef ENET_IMPLEMENTATION
-    #define ENET_API __declspec( dllexport )
-    #else
-    #define ENET_API __declspec( dllimport )
-    #endif // ENET_IMPLEMENTATION
-    #else
-    #define ENET_API extern
-    #endif // ENET_DLL
-
     typedef fd_set ENetSocketSet;
 
     #define ENET_SOCKETSET_EMPTY(sockset)          FD_ZERO(&(sockset))
@@ -143,30 +108,7 @@ static const struct in6_addr enet_v6_localhost = {{{ 0x00, 0x00, 0x00, 0x00, 0x0
 #define ENET_PORT_ANY       0
 
 
-// =======================================================================//
-// !
-// ! List
-// !
-// =======================================================================//
-
-    typedef ENetListNode ENetListIterator;
-
-
-// =======================================================================//
-// !
-// ! General ENet structs/enums
-// !
-// =======================================================================//
-
-
-
     #define in6_equal(in6_addr_a, in6_addr_b) (memcmp(&in6_addr_a, &in6_addr_b, sizeof(struct in6_addr)) == 0)
 
 
 
-
-#endif // _WIN32
-
-
-#endif // ENET_IMPLEMENTATION
-#endif // ENET_INCLUDE_H

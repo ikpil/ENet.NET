@@ -1,77 +1,78 @@
-﻿namespace ENet.NET;
-
-/**
- * An ENet peer which data packets may be sent or received from.
- *
- * No fields should be modified unless otherwise specified.
- */
-public class ENetPeer
+﻿namespace ENet.NET
 {
-    public ENetListNode<ENetPeer> dispatchList;
+    /**
+     * An ENet peer which data packets may be sent or received from.
+     *
+     * No fields should be modified unless otherwise specified.
+     */
+    public class ENetPeer
+    {
+        public ENetListNode<ENetPeer> dispatchList;
 
-    public ENetHost host;
-    public ushort outgoingPeerID;
-    public ushort incomingPeerID;
-    public uint connectID;
-    public byte outgoingSessionID;
-    public byte incomingSessionID;
-    public ENetAddress address; /* Internet address of the peer */
-    public object data; /* Application private data, may be freely modified */
-    public ENetPeerState state;
+        public ENetHost host;
+        public ushort outgoingPeerID;
+        public ushort incomingPeerID;
+        public uint connectID;
+        public byte outgoingSessionID;
+        public byte incomingSessionID;
+        public ENetAddress address; /* Internet address of the peer */
+        public object data; /* Application private data, may be freely modified */
+        public ENetPeerState state;
 
-    public ENetChannel[] channels;
-    public long channelCount; /* Number of channels allocated for communication with peer */
-    public long incomingBandwidth; /* Downstream bandwidth of the client in bytes/second */
-    public long outgoingBandwidth; /* Upstream bandwidth of the client in bytes/second */
-    public long incomingBandwidthThrottleEpoch;
+        public ENetChannel[] channels;
+        public long channelCount; /* Number of channels allocated for communication with peer */
+        public long incomingBandwidth; /* Downstream bandwidth of the client in bytes/second */
+        public long outgoingBandwidth; /* Upstream bandwidth of the client in bytes/second */
+        public long incomingBandwidthThrottleEpoch;
 
-    public uint outgoingBandwidthThrottleEpoch;
-    public uint incomingDataTotal;
-    public ulong totalDataReceived;
-    public uint outgoingDataTotal;
-    public ulong totalDataSent;
-    public uint lastSendTime;
-    public uint lastReceiveTime;
-    public uint nextTimeout;
-    public uint earliestTimeout;
-    public uint packetLossEpoch;
-    public uint packetsSent;
-    public ulong totalPacketsSent; /* total number of packets sent during a session */
-    public uint packetsLost;
-    public uint totalPacketsLost; /* total number of packets lost during a session */
-    public uint packetLoss; /* mean packet loss of reliable packets as a ratio with respect to the constant ENET_PEER_PACKET_LOSS_SCALE */
-    public uint packetLossVariance;
-    public uint packetThrottle;
-    public uint packetThrottleLimit;
-    public uint packetThrottleCounter;
-    public uint packetThrottleEpoch;
-    public uint packetThrottleAcceleration;
-    public uint packetThrottleDeceleration;
-    public uint packetThrottleInterval;
-    public uint pingInterval;
-    public uint timeoutLimit;
-    public uint timeoutMinimum;
-    public uint timeoutMaximum;
-    public uint lastRoundTripTime;
-    public uint lowestRoundTripTime;
-    public uint lastRoundTripTimeVariance;
-    public uint highestRoundTripTimeVariance;
-    public uint roundTripTime; /* mean round trip time (RTT), in milliseconds, between sending a reliable packet and receiving its acknowledgement */
-    public uint roundTripTimeVariance;
-    public long mtu;
-    public long windowSize;
-    public uint reliableDataInTransit;
-    public ushort outgoingReliableSequenceNumber;
-    public ENetList<ENetAcknowledgement> acknowledgements;
-    public ENetList<ENetOutgoingCommand> sentReliableCommands;
-    public ENetList<ENetOutgoingCommand> outgoingCommands;
-    public ENetList<ENetOutgoingCommand> outgoingSendReliableCommands;
-    public ENetList<ENetIncomingCommand> dispatchedCommands;
-    public ushort flags;
-    public ushort reserved;
-    public ushort incomingUnsequencedGroup;
-    public ushort outgoingUnsequencedGroup;
-    public uint[] unsequencedWindow = new uint[ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
-    public uint eventData;
-    public ulong totalWaitingData;
+        public uint outgoingBandwidthThrottleEpoch;
+        public uint incomingDataTotal;
+        public long totalDataReceived;
+        public uint outgoingDataTotal;
+        public long totalDataSent;
+        public uint lastSendTime;
+        public uint lastReceiveTime;
+        public uint nextTimeout;
+        public uint earliestTimeout;
+        public uint packetLossEpoch;
+        public uint packetsSent;
+        public long totalPacketsSent; /* total number of packets sent during a session */
+        public uint packetsLost;
+        public uint totalPacketsLost; /* total number of packets lost during a session */
+        public uint packetLoss; /* mean packet loss of reliable packets as a ratio with respect to the constant ENET_PEER_PACKET_LOSS_SCALE */
+        public uint packetLossVariance;
+        public uint packetThrottle;
+        public uint packetThrottleLimit;
+        public uint packetThrottleCounter;
+        public uint packetThrottleEpoch;
+        public uint packetThrottleAcceleration;
+        public uint packetThrottleDeceleration;
+        public uint packetThrottleInterval;
+        public uint pingInterval;
+        public uint timeoutLimit;
+        public uint timeoutMinimum;
+        public uint timeoutMaximum;
+        public uint lastRoundTripTime;
+        public uint lowestRoundTripTime;
+        public uint lastRoundTripTimeVariance;
+        public uint highestRoundTripTimeVariance;
+        public uint roundTripTime; /* mean round trip time (RTT), in milliseconds, between sending a reliable packet and receiving its acknowledgement */
+        public uint roundTripTimeVariance;
+        public long mtu;
+        public long windowSize;
+        public uint reliableDataInTransit;
+        public ushort outgoingReliableSequenceNumber;
+        public ENetList<ENetAcknowledgement> acknowledgements;
+        public ENetList<ENetOutgoingCommand> sentReliableCommands;
+        public ENetList<ENetOutgoingCommand> outgoingCommands;
+        public ENetList<ENetOutgoingCommand> outgoingSendReliableCommands;
+        public ENetList<ENetIncomingCommand> dispatchedCommands;
+        public ushort flags;
+        public ushort reserved;
+        public ushort incomingUnsequencedGroup;
+        public ushort outgoingUnsequencedGroup;
+        public uint[] unsequencedWindow = new uint[ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
+        public uint eventData;
+        public long totalWaitingData;
+    }
 }

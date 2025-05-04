@@ -1,13 +1,14 @@
-﻿namespace ENet.NET;
-
-public class ENetIncomingCommand
+﻿namespace ENet.NET
 {
-    public ENetListNode<ENetIncomingCommand> incomingCommandList;
-    public ushort reliableSequenceNumber;
-    public ushort unreliableSequenceNumber;
-    public ENetProtocol command;
-    public uint fragmentCount;
-    public uint fragmentsRemaining;
-    public uint[] fragments;
-    public ENetPacket packet;
+    public class ENetIncomingCommand
+    {
+        public ENetListNode<ENetIncomingCommand> incomingCommandList;
+        public ushort reliableSequenceNumber;
+        public ushort unreliableSequenceNumber;
+        public ENetProtocol command;
+        public uint fragmentCount;
+        public uint fragmentsRemaining;
+        public uint[] fragments;
+        public ENetPacket packet;
+    }
 }
