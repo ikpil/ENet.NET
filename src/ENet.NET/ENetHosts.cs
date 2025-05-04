@@ -334,7 +334,7 @@ namespace ENet.NET
             ENetBuffer buffer = new ENetBuffer();
             buffer.data = data;
             buffer.dataLength = dataLength;
-            return enet_socket_send(host.socket, address, ref buffer, 1);
+            return enet_socket_send(host.socket, address, buffer);
         }
 
         /** Sends raw data to specified address with extended arguments. Allows to send only part of data, handy for other programming languages.
@@ -354,7 +354,7 @@ namespace ENet.NET
             ENetBuffer buffer;
             buffer.data = data.Slice(skipBytes);
             buffer.dataLength = bytesToSend;
-            return enet_socket_send(host.socket, address, ref buffer, 1);
+            return enet_socket_send(host.socket, address, buffer);
         }
 
         /** Sets intercept callback for the host.

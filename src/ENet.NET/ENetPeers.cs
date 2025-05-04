@@ -104,22 +104,22 @@ namespace ENet.NET
             return host.connectedPeers;
         }
 
-        public static uint enet_host_get_packets_sent(ENetHost host)
+        public static long enet_host_get_packets_sent(ENetHost host)
         {
             return host.totalSentPackets;
         }
 
-        public static uint enet_host_get_packets_received(ENetHost host)
+        public static long enet_host_get_packets_received(ENetHost host)
         {
             return host.totalReceivedPackets;
         }
 
-        public static uint enet_host_get_bytes_sent(ENetHost host)
+        public static long enet_host_get_bytes_sent(ENetHost host)
         {
             return host.totalSentData;
         }
 
-        public static uint enet_host_get_bytes_received(ENetHost host)
+        public static long enet_host_get_bytes_received(ENetHost host)
         {
             return host.totalReceivedData;
         }
@@ -129,9 +129,9 @@ namespace ENet.NET
          *  @param data ouput parameter for recevied data
          *  @retval buffer length
          */
-        public static uint enet_host_get_received_data(ENetHost host, /*out*/ byte** data)
+        public static long enet_host_get_received_data(ENetHost host, /*out*/ ref ArraySegment<byte> data)
         {
-            *data = host.receivedData;
+            data = host.receivedData;
             return host.receivedDataLength;
         }
 
@@ -145,9 +145,9 @@ namespace ENet.NET
             return peer.connectID;
         }
 
-        public static int enet_peer_get_ip(ENetPeer peer, string ip, long ipLength)
+        public static int enet_peer_get_ip(ENetPeer peer, out string ip)
         {
-            return enet_address_get_host_ip(ref peer.address, ip, ipLength);
+            return enet_address_get_host_ip(peer.address, out ip);
         }
 
         public static ushort enet_peer_get_port(ENetPeer peer)
@@ -160,7 +160,7 @@ namespace ENet.NET
             return peer.state;
         }
 
-        public static uint enet_peer_get_rtt(ENetPeer peer)
+        public static long enet_peer_get_rtt(ENetPeer peer)
         {
             return peer.roundTripTime;
         }
@@ -170,7 +170,7 @@ namespace ENet.NET
             return peer.totalPacketsSent;
         }
 
-        public static uint enet_peer_get_packets_lost(ENetPeer peer)
+        public static long enet_peer_get_packets_lost(ENetPeer peer)
         {
             return peer.totalPacketsLost;
         }
@@ -672,7 +672,7 @@ namespace ENet.NET
             enet_peer_reset_queues(peer);
 
             ENetProtocol command = new ENetProtocol();
-            command.header.command = (byte)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_DISCONNECT;
+            command.header.command = ENetProtocolCommand.ENET_PROTOCOL_COMMAND_DISCONNECT;
             command.header.channelID = 0xFF;
             command.disconnect.data = ENET_HOST_TO_NET_32(data);
 

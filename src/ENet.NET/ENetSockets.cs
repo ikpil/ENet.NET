@@ -187,6 +187,11 @@ namespace ENet.NET
             }
         }
 
+        public static int enet_socket_send(Socket socket, ENetAddress address, ENetBuffer buffer)
+        {
+            return 0;
+        }
+        
         public static int enet_socket_send(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
             struct sockaddr_in6 sin = { 0 };

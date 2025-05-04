@@ -2,8 +2,8 @@
 {
     public static class ENetProtocolFlag
     {
-        public const ushort ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE = (1 << 7);
-        public const ushort ENET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED = (1 << 6);
+        public const byte ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE = (1 << 7);
+        public const byte ENET_PROTOCOL_COMMAND_FLAG_UNSEQUENCED = (1 << 6);
         
         public const ushort ENET_PROTOCOL_HEADER_FLAG_PEER_EXTRA = (1 << 13);
         public const ushort ENET_PROTOCOL_HEADER_FLAG_COMPRESSED = (1 << 14);
