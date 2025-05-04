@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using static ENet.NET.ENetAddresses;
+using System.Collections.Generic;
 
 namespace ENet.NET
 {
@@ -9,216 +11,316 @@ namespace ENet.NET
     {
         public static int enet_socket_bind(Socket socket, ENetAddress address)
         {
-            struct sockaddr_in6 sin = { 0 };
-            sin.sin6_family = AF_INET6;
-
-            if (address != null)
+            try
             {
-                sin.sin6_port = ENET_HOST_TO_NET_16(address.port);
-                sin.sin6_addr = address.host;
-                sin.sin6_scope_id = address.sin6_scope_id;
-            }
-            else
-            {
-                sin.sin6_port = 0;
-                sin.sin6_addr = in6addr_any;
-                sin.sin6_scope_id = 0;
-            }
+                IPEndPoint endPoint;
 
-            return bind(socket, (struct sockaddr *) &sin, sizeof(struct sockaddr_in6)) == SOCKET_ERROR ? -1 : 0;
+                if (null != address && null != address.host)
+                {
+                    IPAddress ip = address.host;
+                    if (ip.AddressFamily == AddressFamily.InterNetworkV6)
+                    {
+                        ip = new IPAddress(ip.GetAddressBytes(), address.sin6_scope_id);
+                    }
+
+                    endPoint = new IPEndPoint(ip, address.port);
+                }
+                else
+                {
+                    IPAddress any = IPAddress.IPv6Any;
+                    endPoint = new IPEndPoint(any, 0);
+                }
+
+                socket.Bind(endPoint);
+                return 0; // 성공
+            }
+            catch (SocketException)
+            {
+                return -1; // 실패
+            }
         }
 
         public static int enet_socket_get_address(Socket socket, ENetAddress address)
         {
-            struct sockaddr_in6 sin = { 0 };
-            int sinLength = sizeof(struct sockaddr_in6);
+            try
+            {
+                if (socket == null || address == null)
+                    return -1;
 
-            if (getsockname(socket, (struct sockaddr *) &sin, &sinLength) == -1) {
+                var endPoint = socket.LocalEndPoint as IPEndPoint;
+                if (endPoint == null)
+                    return -1;
+
+                address.host = endPoint.Address;
+                address.port = (ushort)endPoint.Port;
+                
+                if (endPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                {
+                    address.sin6_scope_id = (uint)endPoint.Address.ScopeId;
+                }
+
+                return 0;
+            }
+            catch (SocketException)
+            {
                 return -1;
             }
-
-            address.host = sin.sin6_addr;
-            address.port = ENET_NET_TO_HOST_16(sin.sin6_port);
-            address.sin6_scope_id = sin.sin6_scope_id;
-
-            return 0;
         }
 
         public static int enet_socket_listen(Socket socket, int backlog)
         {
-            return listen(socket, backlog < 0 ? SOMAXCONN : backlog) == SOCKET_ERROR ? -1 : 0;
+            try
+            {
+                if (socket == null)
+                    return -1;
+
+                socket.Listen(backlog < 0 ? (int)SocketOptionName.MaxConnections : backlog);
+                return 0;
+            }
+            catch (SocketException)
+            {
+                return -1;
+            }
         }
 
         public static Socket enet_socket_create(ENetSocketType type)
         {
-            return socket(PF_INET6, type == ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM ? SOCK_DGRAM : SOCK_STREAM, 0);
+            Socket socket = new Socket(
+                AddressFamily.InterNetworkV6,
+                type == ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM ? SocketType.Dgram : SocketType.Stream,
+                type == ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM ? ProtocolType.Udp : ProtocolType.Tcp
+            );
+
+            socket.DualMode = true;
+            return socket;
         }
 
         public static int enet_socket_set_option(Socket socket, ENetSocketOption option, int value)
         {
-            int result = SOCKET_ERROR;
-
-            switch (option)
+            try
             {
-                case ENetSocketOption.ENET_SOCKOPT_NONBLOCK:
+                if (socket == null)
+                    return -1;
+
+                switch (option)
                 {
-                    u_long nonBlocking = (u_long)value;
-                    result = ioctlsocket(socket, FIONBIO, &nonBlocking);
-                    break;
+                    case ENetSocketOption.ENET_SOCKOPT_NONBLOCK:
+                        socket.Blocking = value == 0;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_BROADCAST:
+                        socket.EnableBroadcast = value != 0;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_REUSEADDR:
+                        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, value);
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_RCVBUF:
+                        socket.ReceiveBufferSize = value;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_SNDBUF:
+                        socket.SendBufferSize = value;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_RCVTIMEO:
+                        socket.ReceiveTimeout = value;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_SNDTIMEO:
+                        socket.SendTimeout = value;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_NODELAY:
+                        socket.NoDelay = value != 0;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY:
+                        socket.DualMode = value == 0;
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_TTL:
+                        socket.Ttl = (short)value;
+                        break;
+
+                    default:
+                        return -1;
                 }
 
-                case ENetSocketOption.ENET_SOCKOPT_BROADCAST:
-                    result = setsockopt(socket, SOL_SOCKET, SO_BROADCAST, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_REUSEADDR:
-                    result = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_RCVBUF:
-                    result = setsockopt(socket, SOL_SOCKET, SO_RCVBUF, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_SNDBUF:
-                    result = setsockopt(socket, SOL_SOCKET, SO_SNDBUF, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_RCVTIMEO:
-                    result = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_SNDTIMEO:
-                    result = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_NODELAY:
-                    result = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY:
-                    result = setsockopt(socket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&value, sizeof(int));
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_TTL:
-                    result = setsockopt(socket, IPPROTO_IP, IP_TTL, (char*)&value, sizeof(int));
-                    break;
-
-                default:
-                    break;
+                return 0;
             }
-
-            return result == SOCKET_ERROR ? -1 : 0;
-        } /* enet_socket_set_option */
-
-        public static int enet_socket_get_option(Socket socket, ENetSocketOption option, out int value)
-        {
-            int result = SOCKET_ERROR, len;
-
-            switch (option)
-            {
-                case ENetSocketOption.ENET_SOCKOPT_ERROR:
-                    len = Marshal.SizeOf<int>();
-                    result = getsockopt(socket, SOL_SOCKET, SO_ERROR, (char*)value, &len);
-                    break;
-
-                case ENetSocketOption.ENET_SOCKOPT_TTL:
-                    len = Marshal.SizeOf<int>();
-                    result = getsockopt(socket, IPPROTO_IP, IP_TTL, (char*)value, &len);
-                    break;
-
-                default:
-                    break;
-            }
-
-            return result == SOCKET_ERROR ? -1 : 0;
-        }
-
-        public static int enet_socket_connect(Socket socket,  ENetAddress address) {
-            struct sockaddr_in6 sin = { 0 };
-            int result;
-
-            sin.sin6_family = AF_INET6;
-            sin.sin6_port = ENET_HOST_TO_NET_16(address.port);
-            sin.sin6_addr = address.host;
-            sin.sin6_scope_id = address.sin6_scope_id;
-
-            result = connect(socket, (struct sockaddr *) &sin, sizeof(struct sockaddr_in6));
-            if (result == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK)
+            catch (SocketException)
             {
                 return -1;
             }
+        }
 
-            return 0;
+        public static int enet_socket_get_option(Socket socket, ENetSocketOption option, out int value)
+        {
+            try
+            {
+                if (socket == null)
+                {
+                    value = 0;
+                    return -1;
+                }
+
+                switch (option)
+                {
+                    case ENetSocketOption.ENET_SOCKOPT_ERROR:
+                        value = (int)socket.GetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Error);
+                        break;
+
+                    case ENetSocketOption.ENET_SOCKOPT_TTL:
+                        value = socket.Ttl;
+                        break;
+
+                    default:
+                        value = 0;
+                        return -1;
+                }
+
+                return 0;
+            }
+            catch (SocketException)
+            {
+                value = 0;
+                return -1;
+            }
+        }
+
+        public static int enet_socket_connect(Socket socket, ENetAddress address)
+        {
+            try
+            {
+                if (socket == null || address == null)
+                    return -1;
+
+                socket.Connect(address.host, address.port);
+                return socket.Connected ? 0 : -1;
+            }
+            catch (SocketException)
+            {
+                return -1;
+            }
         }
 
         public static Socket enet_socket_accept(Socket socket, ENetAddress address)
         {
-            SOCKET result;
-            struct sockaddr_in6 sin = { 0 };
-            int sinLength = sizeof(struct sockaddr_in6);
+            try
+            {
+                if (socket == null)
+                    return null;
 
-            result = accept(socket, address != null ? (struct sockaddr *)&sin : null, address != null ? &sinLength : null);
+                Socket acceptedSocket = socket.Accept();
+                
+                if (address != null)
+                {
+                    var remoteEndPoint = acceptedSocket.RemoteEndPoint as IPEndPoint;
+                    if (remoteEndPoint != null)
+                    {
+                        address.host = remoteEndPoint.Address;
+                        address.port = (ushort)remoteEndPoint.Port;
+                        
+                        if (remoteEndPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                        {
+                            address.sin6_scope_id = (uint)remoteEndPoint.Address.ScopeId;
+                        }
+                    }
+                }
 
-            if (result == INVALID_SOCKET)
+                return acceptedSocket;
+            }
+            catch (SocketException)
             {
                 return null;
             }
-
-            if (address != null)
-            {
-                address.host = sin.sin6_addr;
-                address.port = ENET_NET_TO_HOST_16(sin.sin6_port);
-                address.sin6_scope_id = sin.sin6_scope_id;
-            }
-
-            return result;
         }
 
         public static int enet_socket_shutdown(Socket socket, ENetSocketShutdown how)
         {
-            return shutdown(socket, (int)how) == SOCKET_ERROR ? -1 : 0;
+            try
+            {
+                if (socket == null)
+                    return -1;
+
+                SocketShutdown shutdownMode;
+                switch (how)
+                {
+                    case ENetSocketShutdown.ENET_SOCKET_SHUTDOWN_READ:
+                        shutdownMode = SocketShutdown.Receive;
+                        break;
+                    case ENetSocketShutdown.ENET_SOCKET_SHUTDOWN_WRITE:
+                        shutdownMode = SocketShutdown.Send;
+                        break;
+                    case ENetSocketShutdown.ENET_SOCKET_SHUTDOWN_READ_WRITE:
+                        shutdownMode = SocketShutdown.Both;
+                        break;
+                    default:
+                        return -1;
+                }
+
+                socket.Shutdown(shutdownMode);
+                return 0;
+            }
+            catch (SocketException)
+            {
+                return -1;
+            }
         }
 
         public static void enet_socket_destroy(Socket socket)
         {
-            if (socket != INVALID_SOCKET)
+            try
             {
-                closesocket(socket);
+                if (socket != null)
+                {
+                    socket.Close();
+                    socket.Dispose();
+                }
+            }
+            catch (SocketException)
+            {
+                // 소켓 닫기 실패는 무시
             }
         }
 
-        public static int enet_socket_send(Socket socket, ENetAddress address, ENetBuffer buffer)
-        {
-            return 0;
-        }
-        
         public static int enet_socket_send(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
-            struct sockaddr_in6 sin = { 0 };
-            DWORD sentLength = 0;
-
-            if (address != null)
+            try
             {
-                sin.sin6_family = AF_INET6;
-                sin.sin6_port = ENET_HOST_TO_NET_16(address.port);
-                sin.sin6_addr = address.host;
-                sin.sin6_scope_id = address.sin6_scope_id;
-            }
+                if (socket == null)
+                    return -1;
 
-            if (WSASendTo(socket,
-                    (LPWSABUF)buffers,
-                    (DWORD)bufferCount,
-                    &sentLength,
-                    0,
-                    address != null ? (struct sockaddr *) &sin : null,
-            address != null ? sizeof(struct sockaddr_in6) : 0,
-            null,
-            null) == SOCKET_ERROR
-                ) {
-                return (WSAGetLastError() == WSAEWOULDBLOCK) ? 0 : -1;
-            }
+                var bufferList = new List<ArraySegment<byte>>();
+                for (int i = 0; i < bufferCount; i++)
+                {
+                    var buffer = buffers[i];
+                    if (buffer.data == null || buffer.dataLength <= 0)
+                        continue;
 
-            return (int)sentLength;
+                    bufferList.Add(new ArraySegment<byte>(buffer.data, 0, (int)buffer.dataLength));
+                }
+
+                if (bufferList.Count == 0)
+                    return 0;
+
+                IPEndPoint endPoint = null;
+                if (address != null)
+                {
+                    endPoint = new IPEndPoint(address.host, address.port);
+                }
+
+                int sent = socket.Send(bufferList, bufferList.Count);
+                return sent;
+            }
+            catch (SocketException ex)
+            {
+                if (ex.SocketErrorCode == SocketError.WouldBlock)
+                    return 0;
+                return -1;
+            }
         }
 
         public static int enet_socket_receive(Socket socket, ENetAddress address, ref ENetBuffer buffers, long bufferCount)
