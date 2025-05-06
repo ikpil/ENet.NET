@@ -7,7 +7,7 @@ namespace ENet.NET
     public struct ENetProtocol
     {
         [FieldOffset(0)]
-        public ENetFixedArray256<byte> dummyBytes;
+        public ENetFixedArray48<byte> dummyBytes;
 
         [FieldOffset(0)]
         public ENetProtocolCommandHeader header;
@@ -45,10 +45,9 @@ namespace ENet.NET
         [FieldOffset(0)]
         public ENetProtocolThrottleConfigure throttleConfigure;
 
-        public static ENetProtocol ParseFrom(ReadOnlySpan<byte> bytes)
+        public void MergeForm(ArraySegment<byte> bytes)
         {
-            //header.MergeForm(bytes);
-            return new ENetProtocol();
+            bytes.AsSpan().Slice(0, dummyBytes.Length).CopyTo(dummyBytes.AsSpan());
         }
     }
 }

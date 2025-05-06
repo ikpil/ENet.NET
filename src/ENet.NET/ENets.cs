@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Net;
+using System.Runtime.InteropServices;
 using static ENet.NET.ENetVersions;
 
 namespace ENet.NET
@@ -12,6 +11,17 @@ namespace ENet.NET
 
     /** Callback for intercepting received raw UDP packets. Should return 1 to intercept, 0 to ignore, or -1 to propagate an error. */
     public delegate int ENetInterceptCallback(ENetHost host, object @event);
+
+    public delegate object MallocDelegate(long size);
+
+    public delegate void FreeDelegate(object size);
+
+    public delegate void NoMemoryDelegate();
+
+    public delegate ENetPacket PacketCreateDelegate(ArraySegment<byte> data, int dataLength, uint flags);
+
+    public delegate void PacketDestroyDelegate(ENetPacket packet);
+
 
     public static class ENets
     {
@@ -95,8 +105,28 @@ namespace ENet.NET
         // !
         // =======================================================================//
         // todo: @ikpil check
-        //internal static ENetCallbacks callbacks = { malloc, free, abort, enet_packet_create, enet_packet_destroy };
-        internal static ENetCallbacks callbacks;
+        internal static readonly ENetCallbacks callbacks = new ENetCallbacks
+        {
+            malloc = enet_malloc_dummy,
+            free = enet_free_dummy,
+            no_memory = enet_abort,
+            packet_create = ENetPackets.enet_packet_create,
+            packet_destroy = ENetPackets.enet_packet_destroy
+        };
+
+        private static object enet_malloc_dummy(long size)
+        {
+            return null;
+        }
+
+        private static void enet_free_dummy(object asdf)
+        {
+        }
+
+        private static void enet_abort()
+        {
+            // ..
+        }
 
         /**
          * Initializes ENet globally and supplies user-overridden callbacks. Must be called prior to using any functions in ENet. Do not use enet_initialize() if you use this variant. Make sure the ENetCallbacks structure is zeroed out so that any additional callbacks added in future versions will be properly ignored.
@@ -147,25 +177,14 @@ namespace ENet.NET
             return ENET_VERSION;
         }
 
-        public static ENetPacket enet_malloc_packet(long bufferSize)
-        {
-            // todo : @ikpil check
-            Check(false);
-            var packet = new ENetPacket();
-            packet.dataLength = bufferSize;
-            object memory = callbacks.malloc(bufferSize);
-
-            if (memory == null)
-            {
-                callbacks.no_memory();
-            }
-
-            return packet;
-        }
-
         public static T enet_malloc<T>()
         {
             return enet_malloc<T>(1)[0];
+        }
+
+        public static byte[] enet_malloc_bytes(long size)
+        {
+            return new byte[size];
         }
 
         public static T[] enet_malloc<T>(long size)
@@ -185,22 +204,39 @@ namespace ENet.NET
             callbacks.free(memory);
         }
 
+        public static void enet_assert(bool condition)
+        {
+            if (!condition)
+            {
+                throw new InvalidOperationException();
+            }
+        }
 
         public static int enet_initialize()
         {
             ENetTimes.enet_time_get();
 
+            enet_assert(48 == Marshal.SizeOf<ENetProtocol>());
+            enet_assert(4 == Marshal.SizeOf<ENetProtocolCommandHeader>());
+            enet_assert(4 + 4 == Marshal.SizeOf<ENetProtocolAcknowledge>());
+            enet_assert(4 + 44 == Marshal.SizeOf<ENetProtocolConnect>());
+            enet_assert(4 + 40 == Marshal.SizeOf<ENetProtocolVerifyConnect>());
+            enet_assert(4 + 4 == Marshal.SizeOf<ENetProtocolDisconnect>());
+            enet_assert(4 + 0 == Marshal.SizeOf<ENetProtocolPing>());
+            enet_assert(4 + 2 == Marshal.SizeOf<ENetProtocolSendReliable>());
+            enet_assert(4 + 4 == Marshal.SizeOf<ENetProtocolSendUnreliable>());
+            enet_assert(4 + 4 == Marshal.SizeOf<ENetProtocolSendUnsequenced>());
+            enet_assert(4 + 20 == Marshal.SizeOf<ENetProtocolSendFragment>());
+            enet_assert(4 + 8 == Marshal.SizeOf<ENetProtocolBandwidthLimit>());
+            enet_assert(4 + 12 == Marshal.SizeOf<ENetProtocolThrottleConfigure>());
+
             return 0;
         }
 
-        public static void enet_deinitialize()
+        public static int enet_deinitialize()
         {
             // ..
-        }
-
-        public static void Check(bool aa)
-        {
-            Check(false);
+            return 0;
         }
     }
 }

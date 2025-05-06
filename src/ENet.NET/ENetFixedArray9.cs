@@ -1,7 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2025 Ikpil Choi(ikpil@naver.com)
-// SPDX-License-Identifier: MIT
-
-using System;
+﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -12,12 +9,17 @@ namespace ENet.NET
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ENetFixedArray9<T> where T : unmanaged
     {
-        public const int Size = 4;
+        public const int Size = 9;
 
         private T _v0000;
         private T _v0001;
         private T _v0002;
         private T _v0003;
+        private T _v0004;
+        private T _v0005;
+        private T _v0006;
+        private T _v0007;
+        private T _v0008;
 
         public int Length => Size;
 

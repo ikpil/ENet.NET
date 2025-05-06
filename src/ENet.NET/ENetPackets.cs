@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 using static ENet.NET.ENets;
 
 namespace ENet.NET
@@ -18,36 +19,22 @@ namespace ENet.NET
          * @param flags        flags for this packet as described for the ENetPacket structure.
          * @returns the packet on success, null on failure
          */
-        public static ENetPacket enet_packet_create(byte[] data, long dataLength, uint flags)
+        public static ENetPacket enet_packet_create(ArraySegment<byte> data, int dataLength, uint flags)
         {
-            ENetPacket packet;
+            ENetPacket packet = new ENetPacket();
             if (0 != (flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
             {
-                packet = enet_malloc_packet(0);
-                if (packet == null)
-                {
-                    return null;
-                }
-
                 packet.data = data;
             }
             else
             {
-                packet = enet_malloc_packet(dataLength);
-                if (packet == null)
-                {
-                    return null;
-                }
-
-                // todo : @ikpil check
-                Check(false);
-                //packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
-
+                packet = new ENetPacket();
+                packet.data = enet_malloc_bytes(dataLength);
                 if (data != null)
                 {
-                    // todo : @ikpil check
-                    Check(false);
-                    //memcpy(packet.data, data, dataLength);
+                    Span<byte> src = data.AsSpan().Slice(0, dataLength);
+                    Span<byte> dest = packet.data.AsSpan();
+                    src.CopyTo(dest);
                 }
             }
 
@@ -66,7 +53,7 @@ namespace ENet.NET
             @param dataLength new size for the packet data
             @returns new packet pointer on success, null on failure
         */
-        public static ENetPacket enet_packet_resize(ENetPacket packet, long dataLength)
+        public static ENetPacket enet_packet_resize(ENetPacket packet, int dataLength)
         {
             if (dataLength <= packet.dataLength || 0 != (packet.flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
             {
@@ -75,53 +62,34 @@ namespace ENet.NET
                 return packet;
             }
 
-            ENetPacket newPacket = enet_malloc_packet(dataLength);
-            if (newPacket == null)
-                return null;
+            byte[] dest = enet_malloc_bytes(dataLength);
+            Span<byte> src = packet.data.AsSpan(0, packet.dataLength);
+            src.CopyTo(dest);
 
-            // todo : @ikpil check
-            Check(false);
-            //memcpy(newPacket, packet, Marshal.SizeOf<ENetPacket>() + packet.dataLength);
-            newPacket.CopyFrom(packet);
-            // todo : @ikpil check
-            Check(false);
-            //newPacket.data = (byte*)newPacket + Marshal.SizeOf<ENetPacket>();
+            ENetPacket newPacket = packet.Clone();
+            newPacket.data = dest;
             newPacket.dataLength = dataLength;
+            
             enet_free(packet);
 
             return newPacket;
         }
 
-        public static ENetPacket enet_packet_create_offset(byte[] data, long dataLength, long dataOffset, uint flags)
+        public static ENetPacket enet_packet_create_offset(byte[] data, int dataLength, int dataOffset, uint flags)
         {
-            ENetPacket packet;
+            ENetPacket packet = new ENetPacket();
             if (0 != (flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
             {
-                packet = enet_malloc_packet(0);
-                if (packet == null)
-                {
-                    return null;
-                }
-
                 packet.data = data;
             }
             else
             {
-                packet = enet_malloc_packet(dataLength + dataOffset);
-                if (packet == null)
-                {
-                    return null;
-                }
-
-                // todo : @ikpil check
-                Check(false);
-                //packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
-
+                packet.data = enet_malloc_bytes(dataOffset + dataLength);
                 if (data != null)
                 {
-                    // todo : @ikpil check
-                    Check(false);
-                    //memcpy(packet.data + dataOffset, data, dataLength);
+                    Span<byte> src = data.AsSpan(dataLength);
+                    Span<byte> dest = packet.data.AsSpan(dataOffset);
+                    src.CopyTo(dest);
                 }
             }
 

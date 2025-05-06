@@ -324,7 +324,7 @@ namespace ENet.NET
 
         public static int enet_socket_receive(Socket socket, ENetAddress address, ref ENetBuffer buffers, long bufferCount)
         {
-            Check(false);
+            enet_assert(false);
             return -1;
         }
 

@@ -1,4 +1,5 @@
-﻿using static ENet.NET.ENets;
+﻿using System;
+using static ENet.NET.ENets;
 using System.Diagnostics;
 
 namespace ENet.NET
@@ -23,15 +24,22 @@ namespace ENet.NET
     {
         public long referenceCount; /* internal use only */
         public uint flags; /* bitwise-or of ENetPacketFlag constants */
-        public byte[] data; /* allocated data for packet */
-        public long dataLength; /* length of data */
+        public ArraySegment<byte> data; /* allocated data for packet */
+        public int dataLength; /* length of data */
         public ENetPacketFreeCallback freeCallback; /* function to be called when the packet is no longer in use */
         public object userData; /* application private data, may be freely modified */
 
-        public void CopyFrom(ENetPacket packet)
+        public ENetPacket Clone()
         {
-            // ..
-            Check(false);
+            var packet = new ENetPacket();
+            packet.referenceCount = packet.referenceCount;
+            packet.flags = packet.flags;
+            packet.data = packet.data;
+            packet.dataLength = packet.dataLength;
+            packet.freeCallback = packet.freeCallback;
+            packet.userData = packet.userData;
+
+            return packet;
         }
     }
 }

@@ -992,7 +992,7 @@ namespace ENet.NET
 
         private static ENetIncomingCommand dummyCommand;
 
-        public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, Span<byte> data, long dataLength, uint flags, long fragmentCount)
+        public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, ArraySegment<byte> data, int dataLength, uint flags, long fragmentCount)
         {
             ENetChannel channel = peer.channels[command.header.channelID];
             int unreliableSequenceNumber = 0, reliableSequenceNumber = 0;
@@ -1170,7 +1170,7 @@ namespace ENet.NET
                 Array.Fill(incomingCommand.fragments, 0u, 0, (int)((fragmentCount + 31) / 32 * sizeof(uint)));
             }
 
-            Debug.Assert(packet != null);
+            enet_assert(packet != null);
             ++packet.referenceCount;
             peer.totalWaitingData += packet.dataLength;
 

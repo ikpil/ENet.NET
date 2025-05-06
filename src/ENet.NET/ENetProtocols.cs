@@ -531,6 +531,7 @@ namespace ENet.NET
                 return -1;
             }
 
+            ArraySegment<byte> data = currentData.Slice(Marshal.SizeOf<ENetProtocolSendReliable>());
             dataLength = ENET_NET_TO_HOST_16(command.sendReliable.dataLength);
             currentData = currentData.Slice(0, dataLength);
 
@@ -539,10 +540,7 @@ namespace ENet.NET
                 return -1;
             }
 
-            // todo : @ikpil check
-            Check(false);
-            //(const byte *) command + Marshal.SizeOf<ENetProtocolSendReliable>()
-            if (enet_peer_queue_incoming_command(peer, ref command, command.dummyBytes.AsSpan().Slice(Marshal.SizeOf<ENetProtocolSendReliable>()), dataLength, ENetPacketFlag.ENET_PACKET_FLAG_RELIABLE, 0) == null)
+            if (enet_peer_queue_incoming_command(peer, ref command, data, dataLength, ENetPacketFlag.ENET_PACKET_FLAG_RELIABLE, 0) == null)
             {
                 return -1;
             }
@@ -559,6 +557,7 @@ namespace ENet.NET
                 return -1;
             }
 
+            ArraySegment<byte> data = currentData.Slice(Marshal.SizeOf<ENetProtocolSendUnsequenced>());
             int dataLength = ENET_NET_TO_HOST_16(command.sendUnsequenced.dataLength);
             currentData = currentData.Slice(0, dataLength);
             if (dataLength > host.maximumPacketSize || currentData.Offset < host.receivedData.Offset || currentData.Offset > host.receivedDataLength)
@@ -591,10 +590,7 @@ namespace ENet.NET
                 return 0;
             }
 
-            // todo : @ikpil check
-            Check(false);
-            //(const byte *) command + Marshal.SizeOf<ENetProtocolSendUnsequenced>();
-            if (enet_peer_queue_incoming_command(peer, ref command, command.dummyBytes.AsSpan().Slice(Marshal.SizeOf<ENetProtocolSendUnsequenced>()), dataLength, ENetPacketFlag.ENET_PACKET_FLAG_UNSEQUENCED, 0) == null)
+            if (enet_peer_queue_incoming_command(peer, ref command, data, dataLength, ENetPacketFlag.ENET_PACKET_FLAG_UNSEQUENCED, 0) == null)
             {
                 return -1;
             }
@@ -613,6 +609,7 @@ namespace ENet.NET
             }
 
 
+            ArraySegment<byte> data = currentData.Slice(Marshal.SizeOf<ENetProtocolSendUnreliable>());
             int dataLength = ENET_NET_TO_HOST_16(command.sendUnreliable.dataLength);
             currentData = currentData.Slice(dataLength);
             if (dataLength > host.maximumPacketSize || currentData.Offset < host.receivedData.Offset || currentData.Offset > host.receivedDataLength)
@@ -620,7 +617,7 @@ namespace ENet.NET
                 return -1;
             }
 
-            if (enet_peer_queue_incoming_command(peer, ref command, command.dummyBytes.AsSpan().Slice(Marshal.SizeOf<ENetProtocolSendUnreliable>()), dataLength, 0, 0) == null)
+            if (enet_peer_queue_incoming_command(peer, ref command, data, dataLength, 0, 0) == null)
             {
                 return -1;
             }
@@ -745,7 +742,7 @@ namespace ENet.NET
                 }
 
                 // todo : @ikpil check
-                Check(false);
+                enet_assert(false);
                 //memcpy(startCommand.packet.data + fragmentOffset, (byte *) command + Marshal.SizeOf<ENetProtocolSendFragment>(), fragmentLength);
 
                 if (startCommand.fragmentsRemaining <= 0)
@@ -890,7 +887,7 @@ namespace ENet.NET
                 }
 
                 // todo : @ikpil check
-                Check(false);
+                enet_assert(false);
                 //memcpy(startCommand.packet.data + fragmentOffset, (byte *) command + Marshal.SizeOf<ENetProtocolSendFragment>(), fragmentLength);
 
                 if (startCommand.fragmentsRemaining <= 0)
@@ -1284,7 +1281,7 @@ namespace ENet.NET
                 }
 
                 // todo : @ikpil check
-                Check(false);
+                enet_assert(false);
                 originalSize = host.compressor.decompress(host.compressor.context,
                     host.receivedData.Slice(headerSize),
                     host.receivedDataLength - headerSize,
@@ -1298,7 +1295,7 @@ namespace ENet.NET
                 }
 
                 // todo : @ikpil check
-                Check(false);
+                enet_assert(false);
                 // memcpy(host.packetData[1], header, headerSize);
                 // host.receivedData       = host.packetData[1];
                 // host.receivedDataLength = headerSize + originalSize;
@@ -1307,7 +1304,7 @@ namespace ENet.NET
             if (host.checksum != null)
             {
                 // todo : @ikpil check
-                Check(false);
+                enet_assert(false);
                 // uint *checksum = (uint *) &host.receivedData[headerSize - Marshal.SizeOf<uint>()];
                 // uint desiredChecksum = *checksum;
                 // ENetBuffer buffer;
@@ -1337,7 +1334,8 @@ namespace ENet.NET
                 byte commandNumber;
                 int commandSize;
 
-                ENetProtocol command = ENetProtocol.ParseFrom(currentData);
+                ENetProtocol command = new ENetProtocol();
+                command.MergeForm(currentData);
 
                 if (currentData.Offset + Marshal.SizeOf<ENetProtocolCommandHeader>() > host.receivedDataLength)
                 {
@@ -1473,7 +1471,7 @@ namespace ENet.NET
                         goto commandError;
                 }
 
-                Debug.Assert(null != peer);
+                enet_assert(null != peer);
                 if ((command.header.command & ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) != 0)
                 {
                     ushort sentTime;
@@ -1614,7 +1612,7 @@ namespace ENet.NET
                 currentAcknowledgement = enet_list_next(currentAcknowledgement);
 
                 // todo : @ikpil check
-                Check(false);
+                enet_assert(false);
                 //buffer.data       = command.dummyBytes.AsSpan();
                 buffer.dataLength = Marshal.SizeOf<ENetProtocolAcknowledge>();
                 host.packetSize += buffer.dataLength;
@@ -1728,7 +1726,7 @@ namespace ENet.NET
                     if (currentSendReliableCommand != enet_list_end(ref peer.outgoingSendReliableCommands) && ENET_TIME_LESS(currentSendReliableCommand.value.queueTime, outgoingCommand.queueTime))
                     {
                         // todo : @ikpil check
-                        Check(false);
+                        enet_assert(false);
                         //goto useSendReliableCommand;
                     }
 
@@ -1877,7 +1875,7 @@ namespace ENet.NET
                 }
 
 
-                Check(false);
+                enet_assert(false);
                 //buffer.data = command;
                 buffer.dataLength = commandSize;
 
@@ -1888,7 +1886,8 @@ namespace ENet.NET
                 if (outgoingCommand.packet != null)
                 {
                     ++nbuffer;
-                    buffer.data = new ArraySegment<byte>(outgoingCommand.packet.data, outgoingCommand.fragmentOffset, outgoingCommand.packet.data.Length - outgoingCommand.fragmentOffset);
+                    enet_assert(false);
+                    //buffer.data = new ArraySegment<byte>(outgoingCommand.packet.data, outgoingCommand.fragmentOffset, outgoingCommand.packet.data.Length - outgoingCommand.fragmentOffset);
                     buffer.dataLength = outgoingCommand.fragmentLength;
                     host.packetSize += outgoingCommand.fragmentLength;
                 }
@@ -2014,7 +2013,7 @@ namespace ENet.NET
                     }
 
                     // todo : @ikpil check
-                    Check(false);
+                    enet_assert(false);
                     //host.buffers[0].data = headerData;
                     if (0 != (host.headerFlags & ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_SENT_TIME))
                     {
@@ -2056,7 +2055,7 @@ namespace ENet.NET
                             header.peerID = ENET_HOST_TO_NET_16((ushort)(basePeerID | flagsAndSession));
                             {
                                 // todo : @ikpil check
-                                Check(false);
+                                enet_assert(false);
                                 // byte overflowByte = (byte)((currentPeer.outgoingPeerID >> 11) & 0xFF);
                                 // byte *extraPeerIDByte   = &headerData[host.buffers[0].dataLength];
                                 // *extraPeerIDByte             = overflowByte;
@@ -2072,7 +2071,7 @@ namespace ENet.NET
                     if (host.checksum != null)
                     {
                         // todo : @ikpil check
-                        Check(false);
+                        enet_assert(false);
                         // uint *checksum = (uint *) &headerData[host.buffers[0].dataLength];
                         // *checksum = currentPeer.outgoingPeerID < ENET_PROTOCOL_MAXIMUM_PEER_ID ? currentPeer.connectID : 0;
                         // host.buffers[0].dataLength += Marshal.SizeOf<uint>();
