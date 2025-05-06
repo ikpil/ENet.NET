@@ -33,17 +33,14 @@ namespace ENet.NET
          *  the window size of a connection which limits the amount of reliable packets that may be in transit
          *  at any given time.
          */
-        public static ENetHost enet_host_create(ENetAddress address, long peerCount, long channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
+        public static ENetHost enet_host_create(ref ENetAddress address, long peerCount, long channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
         {
-            ENetHost host = null;
-            ENetPeer currentPeer = null;
-
             if (peerCount > ENET_PROTOCOL_MAXIMUM_PEER_ID)
             {
                 return null;
             }
 
-            host = new ENetHost();
+            ENetHost host = new ENetHost();
             host.peers = new ENetPeer[peerCount];
             if (host.peers == null)
             {
@@ -62,7 +59,7 @@ namespace ENet.NET
                 enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY, 0);
             }
 
-            if (host.socket == null || (address != null && enet_socket_bind(host.socket, address) < 0))
+            if (host.socket == null || (address.host != null && enet_socket_bind(host.socket, ref address) < 0))
             {
                 if (host.socket != null)
                 {
@@ -81,7 +78,7 @@ namespace ENet.NET
             enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_SNDBUF, ENET_HOST_SEND_BUFFER_SIZE);
             enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY, 0);
 
-            if (address != null && enet_socket_get_address(host.socket, host.address) < 0)
+            if (address.host != null && enet_socket_get_address(host.socket, ref host.address) < 0)
             {
                 host.address = address.Clone();
             }
@@ -104,8 +101,7 @@ namespace ENet.NET
             host.commandCount = 0;
             host.bufferCount = 0;
             host.checksum = null;
-            host.receivedAddress.host = IPAddress.IPv6Any;
-            host.receivedAddress.port = 0;
+            host.receivedAddress = new ENetAddress(IPAddress.IPv6Any, 0, 0);
             host.receivedData = null;
             host.receivedDataLength = 0;
             host.totalSentData = 0;
@@ -128,7 +124,7 @@ namespace ENet.NET
 
             for (int i = 0; i < host.peerCount; ++i)
             {
-                currentPeer = host.peers[i];
+                ENetPeer currentPeer = host.peers[i];
                 currentPeer.host = host;
                 currentPeer.incomingPeerID = (ushort)i;
                 currentPeer.outgoingSessionID = currentPeer.incomingSessionID = 0xFF;
@@ -191,7 +187,7 @@ namespace ENet.NET
          *  @remarks The peer returned will have not completed the connection until enet_host_service()
          *  notifies of an ENET_EVENT_TYPE_CONNECT event for the peer.
          */
-        public static ENetPeer enet_host_connect(ENetHost host, ENetAddress address, int channelCount, uint data)
+        public static ENetPeer enet_host_connect(ENetHost host, ref ENetAddress address, int channelCount, uint data)
         {
             ENetPeer currentPeer = null;
             ENetChannel channel = null;
@@ -323,12 +319,12 @@ namespace ENet.NET
          *  @retval <0 error
          *  @sa enet_socket_send
          */
-        public static int enet_host_send_raw(ENetHost host, ENetAddress address, byte[] data, long dataLength)
+        public static int enet_host_send_raw(ENetHost host, ref ENetAddress address, byte[] data, long dataLength)
         {
             ENetBuffer buffer = new ENetBuffer();
             buffer.data = data;
             buffer.dataLength = dataLength;
-            return enet_socket_send(host.socket, address, buffer);
+            return enet_socket_send(host.socket, ref address, buffer);
         }
 
         /** Sends raw data to specified address with extended arguments. Allows to send only part of data, handy for other programming languages.
@@ -342,7 +338,7 @@ namespace ENet.NET
          *  @retval <0 error
          *  @sa enet_socket_send
          */
-        public static int enet_host_send_raw_ex(ENetHost host, ENetAddress address, ArraySegment<byte> data, int skipBytes, long bytesToSend)
+        public static int enet_host_send_raw_ex(ENetHost host, ref ENetAddress address, ArraySegment<byte> data, int skipBytes, long bytesToSend)
         {
             // todo : @ikpil check
             enet_assert(false);
@@ -350,7 +346,7 @@ namespace ENet.NET
             ENetBuffer buffer;
             buffer.data = data.Slice(skipBytes);
             buffer.dataLength = bytesToSend;
-            return enet_socket_send(host.socket, address, buffer);
+            return enet_socket_send(host.socket, ref address, buffer);
         }
 
         /** Sets intercept callback for the host.
@@ -366,14 +362,14 @@ namespace ENet.NET
          *  @param host host to enable or disable compression for
          *  @param compressor callbacks for for the packet compressor; if null, then compression is disabled
          */
-        public static void enet_host_compress(ENetHost host, ENetCompressor compressor)
+        public static void enet_host_compress(ENetHost host, ref ENetCompressor compressor)
         {
             if (host.compressor.context != null && null != host.compressor.destroy)
             {
                 host.compressor.destroy(host.compressor.context);
             }
 
-            if (null != compressor)
+            if (null != compressor.context)
             {
                 host.compressor = compressor;
             }

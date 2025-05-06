@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 
 namespace ENet.NET
 {
@@ -12,16 +13,11 @@ namespace ENet.NET
      * but not for enet_host_create.  Once a server responds to a broadcast, the
      * address is updated from ENET_HOST_BROADCAST to the server's actual IP address.
      */
-    public class ENetAddress
+    public struct ENetAddress
     {
-        public IPAddress host;
-        public ushort port;
-        public long sin6_scope_id;
-
-        public ENetAddress()
-        {
-            
-        }
+        public readonly IPAddress host;
+        public readonly ushort port;
+        public readonly long sin6_scope_id;
 
         public ENetAddress(IPAddress host, ushort port, long sin6_scope_id)
         {
@@ -32,7 +28,10 @@ namespace ENet.NET
 
         public ENetAddress Clone()
         {
-            var ipaddr = new IPAddress(host.GetAddressBytes(), host.ScopeId);
+            ENetFixedArray16<byte> bytes = new ENetFixedArray16<byte>();
+            host.TryWriteBytes(bytes.AsSpan(), out var bytesWritten);
+            var ipaddr = new IPAddress(bytes.AsSpan().Slice(0, bytesWritten));
+            
             return new ENetAddress(ipaddr, port, sin6_scope_id);
         }
     }

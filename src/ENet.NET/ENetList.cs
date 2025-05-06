@@ -1,4 +1,6 @@
-﻿namespace ENet.NET
+﻿using System.Collections.Generic;
+
+namespace ENet.NET
 {
     public struct ENetList<T>
     {

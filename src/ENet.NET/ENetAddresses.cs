@@ -76,7 +76,7 @@ namespace ENet.NET
 
         public static int enet_in6addr_lookup_host(string name, bool noDns, out ENetAddress outAddr)
         {
-            outAddr = null;
+            outAddr = new ENetAddress();
 
             try
             {
@@ -140,7 +140,7 @@ namespace ENet.NET
             return enet_in6addr_lookup_host(name, false, out address);
         }
 
-        public static int enet_address_get_host_ip(ENetAddress address, out string name)
+        public static int enet_address_get_host_ip(ref ENetAddress address, out string name)
         {
             if (address.host.IsIPv4MappedToIPv6)
             {
@@ -157,7 +157,7 @@ namespace ENet.NET
             return 0;
         } /* enet_address_get_host_ip_new */
 
-        public static int enet_address_get_host(ENetAddress address, out string name)
+        public static int enet_address_get_host(ref ENetAddress address, out string name)
         {
             name = null;
 
@@ -186,7 +186,7 @@ namespace ENet.NET
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound)
             {
-                return enet_address_get_host_ip(address, out name);
+                return enet_address_get_host_ip(ref address, out name);
             }
             catch
             {

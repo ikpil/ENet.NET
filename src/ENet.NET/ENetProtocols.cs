@@ -1321,8 +1321,7 @@ namespace ENet.NET
 
             if (peer != null)
             {
-                peer.address.host = host.receivedAddress.host;
-                peer.address.port = host.receivedAddress.port;
+                peer.address = new ENetAddress(host.receivedAddress.host, host.receivedAddress.port, host.receivedAddress.sin6_scope_id);
                 peer.incomingDataTotal += (uint)host.receivedDataLength;
                 peer.totalDataReceived += host.receivedDataLength;
             }
@@ -1528,7 +1527,7 @@ namespace ENet.NET
                 // buffer.dataLength = sizeof (host.packetData[0]);
                 buffer.dataLength = host.mtu;
 
-                receivedLength = enet_socket_receive(host.socket, host.receivedAddress, ref buffer, 1);
+                receivedLength = enet_socket_receive(host.socket, ref host.receivedAddress, ref buffer, 1);
 
                 if (receivedLength == -2)
                     continue;
@@ -2084,7 +2083,7 @@ namespace ENet.NET
                     }
 
                     currentPeer.lastSendTime = host.serviceTime;
-                    sentLength = enet_socket_send(host.socket, currentPeer.address, host.buffers, host.bufferCount);
+                    sentLength = enet_socket_send(host.socket, ref currentPeer.address, host.buffers, host.bufferCount);
                     enet_protocol_remove_sent_unreliable_commands(currentPeer, ref sentUnreliableCommands);
 
                     if (sentLength < 0)

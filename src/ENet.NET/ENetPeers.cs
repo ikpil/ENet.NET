@@ -147,7 +147,7 @@ namespace ENet.NET
 
         public static int enet_peer_get_ip(ENetPeer peer, out string ip)
         {
-            return enet_address_get_host_ip(peer.address, out ip);
+            return enet_address_get_host_ip(ref peer.address, out ip);
         }
 
         public static ushort enet_peer_get_port(ENetPeer peer)

@@ -9,13 +9,13 @@ namespace ENet.NET
 {
     public static class ENetSockets
     {
-        public static int enet_socket_bind(Socket socket, ENetAddress address)
+        public static int enet_socket_bind(Socket socket, ref ENetAddress address)
         {
             try
             {
                 IPEndPoint endPoint;
 
-                if (null != address && null != address.host)
+                if (null != address.host)
                 {
                     IPAddress ip = address.host;
                     if (ip.AddressFamily == AddressFamily.InterNetworkV6)
@@ -40,24 +40,27 @@ namespace ENet.NET
             }
         }
 
-        public static int enet_socket_get_address(Socket socket, ENetAddress address)
+        public static int enet_socket_get_address(Socket socket, ref ENetAddress address)
         {
             try
             {
-                if (socket == null || address == null)
+                if (socket == null || address.host == null)
                     return -1;
 
                 var endPoint = socket.LocalEndPoint as IPEndPoint;
                 if (endPoint == null)
                     return -1;
 
-                address.host = endPoint.Address;
-                address.port = (ushort)endPoint.Port;
+                var host = endPoint.Address;
+                var port = (ushort)endPoint.Port;
+                var scopeId = address.sin6_scope_id;
 
                 if (endPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
                 {
-                    address.sin6_scope_id = (uint)endPoint.Address.ScopeId;
+                    scopeId = (uint)endPoint.Address.ScopeId;
                 }
+
+                address = new ENetAddress(host, port, scopeId);
 
                 return 0;
             }
@@ -190,11 +193,11 @@ namespace ENet.NET
             }
         }
 
-        public static int enet_socket_connect(Socket socket, ENetAddress address)
+        public static int enet_socket_connect(Socket socket, ref ENetAddress address)
         {
             try
             {
-                if (socket == null || address == null)
+                if (socket == null || address.host == null)
                     return -1;
 
                 socket.Connect(address.host, address.port);
@@ -206,7 +209,7 @@ namespace ENet.NET
             }
         }
 
-        public static Socket enet_socket_accept(Socket socket, ENetAddress address)
+        public static Socket enet_socket_accept(Socket socket, ref ENetAddress address)
         {
             try
             {
@@ -215,18 +218,21 @@ namespace ENet.NET
 
                 Socket acceptedSocket = socket.Accept();
 
-                if (address != null)
+                if (address.host != null)
                 {
                     var remoteEndPoint = acceptedSocket.RemoteEndPoint as IPEndPoint;
                     if (remoteEndPoint != null)
                     {
-                        address.host = remoteEndPoint.Address;
-                        address.port = (ushort)remoteEndPoint.Port;
+                        var host = remoteEndPoint.Address;
+                        var port = (ushort)remoteEndPoint.Port;
+                        var scopeId = address.sin6_scope_id;
 
                         if (remoteEndPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
                         {
-                            address.sin6_scope_id = (uint)remoteEndPoint.Address.ScopeId;
+                            scopeId = (uint)remoteEndPoint.Address.ScopeId;
                         }
+
+                        address = new ENetAddress(host, port, scopeId);
                     }
                 }
 
@@ -286,12 +292,12 @@ namespace ENet.NET
             }
         }
 
-        public static int enet_socket_send(Socket socket, ENetAddress address, ENetBuffer buffers)
+        public static int enet_socket_send(Socket socket, ref ENetAddress address, ENetBuffer buffers)
         {
             return -1;
         }
 
-        public static int enet_socket_send(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
+        public static int enet_socket_send(Socket socket, ref ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
             try
             {
@@ -322,13 +328,13 @@ namespace ENet.NET
             }
         }
 
-        public static int enet_socket_receive(Socket socket, ENetAddress address, ref ENetBuffer buffers, long bufferCount)
+        public static int enet_socket_receive(Socket socket, ref ENetAddress address, ref ENetBuffer buffers, long bufferCount)
         {
             enet_assert(false);
             return -1;
         }
 
-        public static int enet_socket_receive(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
+        public static int enet_socket_receive(Socket socket, ref ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
             try
             {
@@ -349,22 +355,25 @@ namespace ENet.NET
                     return 0;
 
                 EndPoint remoteEP = null;
-                if (address != null)
+                if (address.host != null)
                 {
                     remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
                 }
 
                 int received = socket.Receive(bufferList);
 
-                if (address != null && remoteEP is IPEndPoint ipEndPoint)
+                if (address.host != null && remoteEP is IPEndPoint ipEndPoint)
                 {
-                    address.host = ipEndPoint.Address;
-                    address.port = (ushort)ipEndPoint.Port;
+                    var host = ipEndPoint.Address;
+                    var port = (ushort)ipEndPoint.Port;
+                    var scopeId = address.sin6_scope_id;
 
                     if (ipEndPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
                     {
-                        address.sin6_scope_id = (uint)ipEndPoint.Address.ScopeId;
+                        scopeId = (uint)ipEndPoint.Address.ScopeId;
                     }
+
+                    address = new ENetAddress(host, port, scopeId);
                 }
 
                 return received;

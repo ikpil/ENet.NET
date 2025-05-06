@@ -35,15 +35,16 @@ public static class Program
 
         int i = 0;
         Client[] clients = new Client[MAX_CLIENTS];
-        ENetAddress address = new ENetAddress();
-
-        address.host = IPAddress.Any; /* Bind the server to the default localhost. */
-        address.port = 7777; /* Bind the server to port 7777. */
+        ENetAddress address = new ENetAddress(
+            IPAddress.Any, /* Bind the server to the default localhost. */
+            7777, /* Bind the server to port 7777. */
+            0
+        );
 
 
         /* create a server */
         print($"starting server...");
-        ENetHost server = enet_host_create(address, MAX_CLIENTS, 2, 0, 0);
+        ENetHost server = enet_host_create(ref address, MAX_CLIENTS, 2, 0, 0);
         if (server == null)
         {
             print($"An error occurred while trying to create an ENet server host.");
@@ -54,8 +55,9 @@ public static class Program
         for (i = 0; i < MAX_CLIENTS; ++i)
         {
             enet_address_set_host(out address, "127.0.0.1");
-            clients[i].host = enet_host_create(null, 1, 2, 0, 0);
-            clients[i].peer = enet_host_connect(clients[i].host, address, 2, 0);
+            var empty = new ENetAddress();
+            clients[i].host = enet_host_create(ref empty, 1, 2, 0, 0);
+            clients[i].peer = enet_host_connect(clients[i].host, ref address, 2, 0);
             if (clients[i].peer == null)
             {
                 print($"coundlnt connect");
