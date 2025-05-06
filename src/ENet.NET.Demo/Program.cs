@@ -62,7 +62,7 @@ public static class Program
         ENetHost server = enet_host_create(ref address, MAX_CLIENTS, 2, 0, 0);
         if (server == null)
         {
-            print($"An error occurred while trying to create an ENet server host.");
+            perror($"An error occurred while trying to create an ENet server host.");
             return 1;
         }
 
@@ -75,7 +75,7 @@ public static class Program
             clients[i].peer = enet_host_connect(clients[i].host, ref address, 2, 0);
             if (clients[i].peer == null)
             {
-                print($"coundlnt connect");
+                perror($"coundlnt connect");
                 return 1;
             }
         }

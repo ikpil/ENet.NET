@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static ENet.NET.ENetVersions;
 
@@ -21,7 +22,7 @@ namespace ENet.NET
     public delegate ENetPacket PacketCreateDelegate(ArraySegment<byte> data, int dataLength, uint flags);
 
     public delegate void PacketDestroyDelegate(ENetPacket packet);
-    
+
     /** Compresses from inBuffers[0:inBufferCount-1], containing inLimit bytes, to outData, outputting at most outLimit bytes. Should return 0 on failure. */
     public delegate long CompressorCompressDelegate(object context, ref ENetBuffer inBuffers, long inBufferCount, long inLimit, ArraySegment<byte> outData, long outLimit);
 
@@ -30,7 +31,6 @@ namespace ENet.NET
 
     /** Destroys the context when compression is disabled or the host is destroyed. May be NULL. */
     public delegate void CompressorDestroyDelegate(object context);
-
 
 
     public static class ENets
@@ -78,16 +78,23 @@ namespace ENet.NET
         public const int ENET_HOST_DEFAULT_MAXIMUM_PACKET_SIZE = 32 * 1024 * 1024;
         public const int ENET_HOST_DEFAULT_MAXIMUM_WAITING_DATA = 32 * 1024 * 1024;
 
-        public static void perror(string message)
+        public static void perror(string message, [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0, [CallerMemberName] string memberName = "")
         {
-            Console.Error.WriteLine(message);
+            Console.Error.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [ERR] {message} {memberName}() {fileName}:{lineNumber}");
         }
 
-        public static void print(string message)
+        public static void print(string message, [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0, [CallerMemberName] string memberName = "")
         {
-            Console.WriteLine(message);
+            Console.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [INF] {message}");
         }
 
+        public static void enet_assert(bool condition, string message = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0, [CallerMemberName] string memberName = "")
+        {
+            if (condition)
+                return;
+
+            throw new InvalidOperationException($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [THW] {message} {memberName}() {fileName}:{lineNumber}");
+        }
 
         public static void ENET_UNUSED<T>(T x)
         {
@@ -214,13 +221,7 @@ namespace ENet.NET
             callbacks.free(memory);
         }
 
-        public static void enet_assert(bool condition)
-        {
-            if (!condition)
-            {
-                throw new InvalidOperationException();
-            }
-        }
+
 
         public static int enet_initialize()
         {
