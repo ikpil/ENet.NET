@@ -51,7 +51,7 @@ namespace ENet.NET
         };
 
         public ENetAddress receivedAddress;
-        public byte[] receivedData;
+        public ArraySegment<byte> receivedData;
         public int receivedDataLength;
         public long totalSentData; /* total data sent, user should reset to 0 as needed to prevent overflow */
         public long totalSentPackets; /* total UDP packets sent, user should reset to 0 as needed to prevent overflow */

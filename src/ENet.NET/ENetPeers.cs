@@ -286,7 +286,7 @@ namespace ENet.NET
                         return -1;
                     }
 
-                    fragment.fragmentOffset = (uint)fragmentOffset;
+                    fragment.fragmentOffset = (int)fragmentOffset;
                     fragment.fragmentLength = (ushort)fragmentLength;
                     fragment.packet = packet;
                     fragment.command.header.command = commandNumber;
@@ -845,7 +845,7 @@ namespace ENet.NET
             }
 
             outgoingCommand.command = command;
-            outgoingCommand.fragmentOffset = (uint)offset;
+            outgoingCommand.fragmentOffset = (int)offset;
             outgoingCommand.fragmentLength = (ushort)length;
             outgoingCommand.packet = packet;
             if (packet != null)

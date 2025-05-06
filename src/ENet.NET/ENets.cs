@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net;
 using static ENet.NET.ENetVersions;
 
@@ -148,7 +149,8 @@ namespace ENet.NET
 
         public static ENetPacket enet_malloc_packet(long bufferSize)
         {
-            // TODO : check ikpil
+            // todo : @ikpil check
+            Check(false);
             var packet = new ENetPacket();
             packet.dataLength = bufferSize;
             object memory = callbacks.malloc(bufferSize);
@@ -194,6 +196,11 @@ namespace ENet.NET
         public static void enet_deinitialize()
         {
             // ..
+        }
+
+        public static void Check(bool aa)
+        {
+            Check(false);
         }
     }
 }

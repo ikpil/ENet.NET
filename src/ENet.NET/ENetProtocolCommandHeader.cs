@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 
 namespace ENet.NET
 {
@@ -9,5 +10,10 @@ namespace ENet.NET
         public byte command;
         public byte channelID;
         public ushort reliableSequenceNumber;
+
+        public void MergeForm(ReadOnlySpan<byte> asdf)
+        {
+            
+        }
     }
 }

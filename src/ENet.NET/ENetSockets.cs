@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
-using static ENet.NET.ENetAddresses;
 using System.Collections.Generic;
+using static ENet.NET.ENets;
+
 
 namespace ENet.NET
 {
@@ -290,7 +290,7 @@ namespace ENet.NET
         {
             return -1;
         }
-        
+
         public static int enet_socket_send(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
             try
@@ -320,6 +320,12 @@ namespace ENet.NET
                     return 0;
                 return -1;
             }
+        }
+
+        public static int enet_socket_receive(Socket socket, ENetAddress address, ref ENetBuffer buffers, long bufferCount)
+        {
+            Check(false);
+            return -1;
         }
 
         public static int enet_socket_receive(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
@@ -354,7 +360,7 @@ namespace ENet.NET
                 {
                     address.host = ipEndPoint.Address;
                     address.port = (ushort)ipEndPoint.Port;
-                    
+
                     if (ipEndPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
                     {
                         address.sin6_scope_id = (uint)ipEndPoint.Address.ScopeId;

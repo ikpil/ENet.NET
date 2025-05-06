@@ -49,6 +49,7 @@ namespace ENet.NET
                 return null;
             }
             // todo : @ikpil check
+            Check(false);
             //memset(host, 0, sizeof(ENetHost));
 
             host.peers = enet_malloc<ENetPeer>(peerCount);
@@ -59,6 +60,7 @@ namespace ENet.NET
             }
 
             // todo : @ikpil check
+            Check(false);
             //memset(host.peers, 0, peerCount * sizeof(ENetPeer));
 
             host.socket = enet_socket_create(ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM);
@@ -349,7 +351,9 @@ namespace ENet.NET
          */
         public static int enet_host_send_raw_ex(ENetHost host, ENetAddress address, ArraySegment<byte> data, int skipBytes, long bytesToSend)
         {
-            // todo : check @ikpil
+            // todo : @ikpil check
+            Check(false);
+
             ENetBuffer buffer;
             buffer.data = data.Slice(skipBytes);
             buffer.dataLength = bytesToSend;

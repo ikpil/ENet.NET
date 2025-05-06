@@ -40,11 +40,13 @@ namespace ENet.NET
                 }
 
                 // todo : @ikpil check
+                Check(false);
                 //packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
 
                 if (data != null)
                 {
-                    // todo : check
+                    // todo : @ikpil check
+                    Check(false);
                     //memcpy(packet.data, data, dataLength);
                 }
             }
@@ -77,9 +79,12 @@ namespace ENet.NET
             if (newPacket == null)
                 return null;
 
-            // todo : ikpil
+            // todo : @ikpil check
+            Check(false);
             //memcpy(newPacket, packet, Marshal.SizeOf<ENetPacket>() + packet.dataLength);
             newPacket.CopyFrom(packet);
+            // todo : @ikpil check
+            Check(false);
             //newPacket.data = (byte*)newPacket + Marshal.SizeOf<ENetPacket>();
             newPacket.dataLength = dataLength;
             enet_free(packet);
@@ -108,12 +113,14 @@ namespace ENet.NET
                     return null;
                 }
 
-                // todo : check
+                // todo : @ikpil check
+                Check(false);
                 //packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
 
                 if (data != null)
                 {
-                    // todo : check
+                    // todo : @ikpil check
+                    Check(false);
                     //memcpy(packet.data + dataOffset, data, dataLength);
                 }
             }

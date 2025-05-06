@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using static ENet.NET.ENets;
+using System.Diagnostics;
 
 namespace ENet.NET
 {
@@ -30,7 +31,7 @@ namespace ENet.NET
         public void CopyFrom(ENetPacket packet)
         {
             // ..
-            Debug.Assert(false);
+            Check(false);
         }
     }
 }

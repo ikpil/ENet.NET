@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 
 namespace ENet.NET
 {
@@ -6,7 +7,7 @@ namespace ENet.NET
     public struct ENetProtocol
     {
         [FieldOffset(0)]
-        public ENetFixedArray256<byte> bytes;
+        public ENetFixedArray256<byte> dummyBytes;
 
         [FieldOffset(0)]
         public ENetProtocolCommandHeader header;
@@ -44,5 +45,10 @@ namespace ENet.NET
         [FieldOffset(0)]
         public ENetProtocolThrottleConfigure throttleConfigure;
 
+        public static ENetProtocol ParseFrom(ReadOnlySpan<byte> bytes)
+        {
+            //header.MergeForm(bytes);
+            return new ENetProtocol();
+        }
     }
 }
