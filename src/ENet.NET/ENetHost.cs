@@ -38,9 +38,9 @@ namespace ENet.NET
         public long packetSize;
         public ushort headerFlags;
         public ENetProtocol[] commands = new ENetProtocol[ENets.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
-        public long commandCount;
+        public int commandCount;
         public ENetBuffer[] buffers = new ENetBuffer[ENets.ENET_BUFFER_MAXIMUM];
-        public long bufferCount;
+        public int bufferCount;
         public ENetChecksumCallback checksum; /* callback the user can set to enable packet checksums for this host */
         public ENetCompressor compressor;
 
@@ -51,8 +51,8 @@ namespace ENet.NET
         };
 
         public ENetAddress receivedAddress;
-        public ArraySegment<byte> receivedData;
-        public long receivedDataLength;
+        public byte[] receivedData;
+        public int receivedDataLength;
         public long totalSentData; /* total data sent, user should reset to 0 as needed to prevent overflow */
         public long totalSentPackets; /* total UDP packets sent, user should reset to 0 as needed to prevent overflow */
         public long totalReceivedData; /* total data received, user should reset to 0 as needed to prevent overflow */

@@ -43,5 +43,6 @@ namespace ENet.NET
 
         [FieldOffset(0)]
         public ENetProtocolThrottleConfigure throttleConfigure;
+
     }
 }

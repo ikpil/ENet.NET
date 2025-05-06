@@ -6,4 +6,8 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ENet.NET\ENet.NET.csproj" />
+  </ItemGroup>
+
 </Project>

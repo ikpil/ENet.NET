@@ -1,4 +1,6 @@
-﻿namespace ENet.NET.Test;
+﻿using NUnit.Framework;
+
+namespace ENet.NET.Test;
 
 public class Tests
 {

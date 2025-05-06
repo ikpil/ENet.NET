@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static ENet.NET.ENetLists;
 using static ENet.NET.ENets;
@@ -19,24 +20,24 @@ namespace ENet.NET
         // ! Protocol
         // !
         // =======================================================================//
-        public static uint[] commandSizes = new uint[ENetProtocolCommand.ENET_PROTOCOL_COMMAND_COUNT]
+        public static int[] commandSizes = new int[ENetProtocolCommand.ENET_PROTOCOL_COMMAND_COUNT]
         {
-            (uint)0,
-            (uint)Marshal.SizeOf<ENetProtocolAcknowledge>(),
-            (uint)Marshal.SizeOf<ENetProtocolConnect>(),
-            (uint)Marshal.SizeOf<ENetProtocolVerifyConnect>(),
-            (uint)Marshal.SizeOf<ENetProtocolDisconnect>(),
-            (uint)Marshal.SizeOf<ENetProtocolPing>(),
-            (uint)Marshal.SizeOf<ENetProtocolSendReliable>(),
-            (uint)Marshal.SizeOf<ENetProtocolSendUnreliable>(),
-            (uint)Marshal.SizeOf<ENetProtocolSendFragment>(),
-            (uint)Marshal.SizeOf<ENetProtocolSendUnsequenced>(),
-            (uint)Marshal.SizeOf<ENetProtocolBandwidthLimit>(),
-            (uint)Marshal.SizeOf<ENetProtocolThrottleConfigure>(),
-            (uint)Marshal.SizeOf<ENetProtocolSendFragment>(),
+            0,
+            Marshal.SizeOf<ENetProtocolAcknowledge>(),
+            Marshal.SizeOf<ENetProtocolConnect>(),
+            Marshal.SizeOf<ENetProtocolVerifyConnect>(),
+            Marshal.SizeOf<ENetProtocolDisconnect>(),
+            Marshal.SizeOf<ENetProtocolPing>(),
+            Marshal.SizeOf<ENetProtocolSendReliable>(),
+            Marshal.SizeOf<ENetProtocolSendUnreliable>(),
+            Marshal.SizeOf<ENetProtocolSendFragment>(),
+            Marshal.SizeOf<ENetProtocolSendUnsequenced>(),
+            Marshal.SizeOf<ENetProtocolBandwidthLimit>(),
+            Marshal.SizeOf<ENetProtocolThrottleConfigure>(),
+            Marshal.SizeOf<ENetProtocolSendFragment>(),
         };
 
-        public static uint enet_protocol_command_size(byte commandNumber) {
+        public static int enet_protocol_command_size(byte commandNumber) {
             return commandSizes[commandNumber & (uint)ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK];
         }
 
@@ -262,7 +263,7 @@ namespace ENet.NET
             if (channelID < peer.channelCount) 
             {
                 ENetChannel channel       = peer.channels[channelID];
-                ushort reliableWindow = (ushort)(reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
+                ushort reliableWindow = (ushort)(reliableSequenceNumber / ENET_PEER_RELIABLE_WINDOW_SIZE);
                 if (channel.reliableWindows[reliableWindow] > 0) 
                 {
                     --channel.reliableWindows[reliableWindow];
@@ -314,7 +315,7 @@ namespace ENet.NET
 
             channelCount = ENET_NET_TO_HOST_32(command.connect.channelCount);
 
-            if (channelCount < ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
+            if (channelCount < ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT) {
                 return null;
             }
 
@@ -392,43 +393,43 @@ namespace ENet.NET
 
             mtu = ENET_NET_TO_HOST_32(command.connect.mtu);
 
-            if (mtu < ENets.ENET_PROTOCOL_MINIMUM_MTU) {
-                mtu = ENets.ENET_PROTOCOL_MINIMUM_MTU;
-            } else if (mtu > ENets.ENET_PROTOCOL_MAXIMUM_MTU) {
-                mtu = ENets.ENET_PROTOCOL_MAXIMUM_MTU;
+            if (mtu < ENET_PROTOCOL_MINIMUM_MTU) {
+                mtu = ENET_PROTOCOL_MINIMUM_MTU;
+            } else if (mtu > ENET_PROTOCOL_MAXIMUM_MTU) {
+                mtu = ENET_PROTOCOL_MAXIMUM_MTU;
             }
 
             if (mtu < peer.mtu)
                 peer.mtu = mtu;
 
             if (host.outgoingBandwidth == 0 && peer.incomingBandwidth == 0) {
-                peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+                peer.windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             } else if (host.outgoingBandwidth == 0 || peer.incomingBandwidth == 0) {
-                peer.windowSize = (Math.Max(host.outgoingBandwidth, peer.incomingBandwidth) / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+                peer.windowSize = (Math.Max(host.outgoingBandwidth, peer.incomingBandwidth) / ENET_PEER_WINDOW_SIZE_SCALE) * ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             } else {
-                peer.windowSize = (Math.Min(host.outgoingBandwidth, peer.incomingBandwidth) / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+                peer.windowSize = (Math.Min(host.outgoingBandwidth, peer.incomingBandwidth) / ENET_PEER_WINDOW_SIZE_SCALE) * ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             }
 
-            if (peer.windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-                peer.windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
-            } else if (peer.windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-                peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            if (peer.windowSize < ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+                peer.windowSize = ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            } else if (peer.windowSize > ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+                peer.windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             }
 
             if (host.incomingBandwidth == 0) {
-                windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+                windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             } else {
-                windowSize = (host.incomingBandwidth / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+                windowSize = (host.incomingBandwidth / ENET_PEER_WINDOW_SIZE_SCALE) * ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             }
 
             if (windowSize > ENET_NET_TO_HOST_32(command.connect.windowSize)) {
                 windowSize = ENET_NET_TO_HOST_32(command.connect.windowSize);
             }
 
-            if (windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-                windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
-            } else if (windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-                windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            if (windowSize < ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+                windowSize = ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            } else if (windowSize > ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+                windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             }
 
             verifyCommand.header.command                            = ENetProtocolCommand.ENET_PROTOCOL_COMMAND_VERIFY_CONNECT | ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
@@ -487,13 +488,13 @@ namespace ENet.NET
             }
 
             unsequencedGroup = ENET_NET_TO_HOST_16(command.sendUnsequenced.unsequencedGroup);
-            index = unsequencedGroup % ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE;
+            index = unsequencedGroup % ENET_PEER_UNSEQUENCED_WINDOW_SIZE;
 
             if (unsequencedGroup < peer.incomingUnsequencedGroup) {
                 unsequencedGroup += 0x10000;
             }
 
-            if (unsequencedGroup >= (uint) peer.incomingUnsequencedGroup + ENets.ENET_PEER_FREE_UNSEQUENCED_WINDOWS * ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE) {
+            if (unsequencedGroup >= (uint) peer.incomingUnsequencedGroup + ENET_PEER_FREE_UNSEQUENCED_WINDOWS * ENET_PEER_UNSEQUENCED_WINDOW_SIZE) {
                 return 0;
             }
 
@@ -503,7 +504,7 @@ namespace ENet.NET
             {
                 peer.incomingUnsequencedGroup = (ushort)(unsequencedGroup - index);
                 Array.Fill(peer.unsequencedWindow, (uint)0);
-            } else if (peer.unsequencedWindow[index / 32] & (1u << (index % 32))) {
+            } else if (0 != (peer.unsequencedWindow[index / 32] & (1u << (int)(index % 32)))) {
                 return 0;
             }
 
@@ -513,27 +514,26 @@ namespace ENet.NET
                 return -1;
             }
 
-            peer.unsequencedWindow[index / 32] |= 1u << (index % 32);
+            peer.unsequencedWindow[index / 32] |= 1u << (int)(index % 32);
 
             return 0;
         } /* enet_protocol_handle_send_unsequenced */
 
         public static int enet_protocol_handle_send_unreliable(ENetHost host, ENetPeer peer, ref ENetProtocol command, ref ArraySegment<byte> currentData) {
-            long dataLength;
-
             if (command.header.channelID >= peer.channelCount ||
               (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER))
             {
                 return -1;
             }
 
-            dataLength    = ENET_NET_TO_HOST_16(command.sendUnreliable.dataLength);
-            *currentData += dataLength;
-            if (dataLength > host.maximumPacketSize || *currentData < host.receivedData || *currentData > &host.receivedData[host.receivedDataLength]) {
+            
+            int dataLength    = ENET_NET_TO_HOST_16(command.sendUnreliable.dataLength);
+            currentData = currentData.Slice(dataLength);
+            if (dataLength > host.maximumPacketSize || currentData.Offset < host.receivedData.Offset || currentData.Offset > host.receivedDataLength) {
                 return -1;
             }
 
-            if (enet_peer_queue_incoming_command(peer, command, (const byte *) command + Marshal.SizeOf<ENetProtocolSendUnreliable>(), dataLength, 0, 0) == null) {
+            if (enet_peer_queue_incoming_command(peer, ref command, command.bytes.AsSpan().Slice(Marshal.SizeOf<ENetProtocolSendUnreliable>()), dataLength, 0, 0) == null) {
                 return -1;
             }
 
@@ -541,7 +541,7 @@ namespace ENet.NET
         }
 
         public static int enet_protocol_handle_send_fragment(ENetHost host, ENetPeer peer, ref ENetProtocol command, ref ArraySegment<byte> currentData) {
-            uint fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, startSequenceNumber, totalLength;
+            int fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, startSequenceNumber, totalLength;
             ENetChannel channel = null;
             long startWindow, currentWindow;
             ENetListNode<ENetIncomingCommand> currentCommand = null;
@@ -552,34 +552,34 @@ namespace ENet.NET
             }
 
             fragmentLength = ENET_NET_TO_HOST_16(command.sendFragment.dataLength);
-            *currentData  += fragmentLength;
+            currentData  = currentData.Slice((int)fragmentLength);
             if (fragmentLength <= 0 ||
                 fragmentLength > host.maximumPacketSize ||
-                *currentData < host.receivedData ||
-                *currentData > &host.receivedData[host.receivedDataLength]
+                currentData.Offset < host.receivedData.Offset ||
+                currentData.Offset > host.receivedDataLength
             ) {
                 return -1;
             }
 
             channel = peer.channels[command.header.channelID];
             startSequenceNumber = ENET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-            startWindow         = startSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
-            currentWindow       = channel.incomingReliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
+            startWindow         = startSequenceNumber / ENET_PEER_RELIABLE_WINDOW_SIZE;
+            currentWindow       = channel.incomingReliableSequenceNumber / ENET_PEER_RELIABLE_WINDOW_SIZE;
 
             if (startSequenceNumber < channel.incomingReliableSequenceNumber) {
-                startWindow += ENets.ENET_PEER_RELIABLE_WINDOWS;
+                startWindow += ENET_PEER_RELIABLE_WINDOWS;
             }
 
-            if (startWindow < currentWindow || startWindow >= currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
+            if (startWindow < currentWindow || startWindow >= currentWindow + ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
                 return 0;
             }
 
-            fragmentNumber = ENET_NET_TO_HOST_32(command.sendFragment.fragmentNumber);
-            fragmentCount  = ENET_NET_TO_HOST_32(command.sendFragment.fragmentCount);
-            fragmentOffset = ENET_NET_TO_HOST_32(command.sendFragment.fragmentOffset);
-            totalLength    = ENET_NET_TO_HOST_32(command.sendFragment.totalLength);
+            fragmentNumber = (int)ENET_NET_TO_HOST_32(command.sendFragment.fragmentNumber);
+            fragmentCount  = (int)ENET_NET_TO_HOST_32(command.sendFragment.fragmentCount);
+            fragmentOffset = (int)ENET_NET_TO_HOST_32(command.sendFragment.fragmentOffset);
+            totalLength    = (int)ENET_NET_TO_HOST_32(command.sendFragment.totalLength);
 
-            if (fragmentCount > ENets.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
+            if (fragmentCount > ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
                 fragmentNumber >= fragmentCount ||
                 totalLength > host.maximumPacketSize ||
                 totalLength < fragmentCount ||
@@ -631,12 +631,13 @@ namespace ENet.NET
                 }
             }
 
-            if ((startCommand.fragments[fragmentNumber / 32] & (1u << (fragmentNumber % 32))) == 0) {
+            if ((startCommand.fragments[fragmentNumber / 32] & (1u << (int)(fragmentNumber % 32))) == 0) {
                 --startCommand.fragmentsRemaining;
-                startCommand.fragments[fragmentNumber / 32] |= (1u << (fragmentNumber % 32));
+                startCommand.fragments[fragmentNumber / 32] |= (1u << (int)(fragmentNumber % 32));
 
-                if (fragmentOffset + fragmentLength > startCommand.packet.dataLength) {
-                    fragmentLength = startCommand.packet.dataLength - fragmentOffset;
+                if (fragmentOffset + fragmentLength > startCommand.packet.dataLength)
+                {
+                    fragmentLength = (int)(startCommand.packet.dataLength - fragmentOffset);
                 }
 
                 memcpy(startCommand.packet.data + fragmentOffset, (byte *) command + Marshal.SizeOf<ENetProtocolSendFragment>(), fragmentLength);
@@ -650,7 +651,7 @@ namespace ENet.NET
         } /* enet_protocol_handle_send_fragment */
 
         public static int enet_protocol_handle_send_unreliable_fragment(ENetHost host, ENetPeer peer, ref ENetProtocol command, ref ArraySegment<byte> currentData) {
-            uint fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, reliableSequenceNumber, startSequenceNumber, totalLength;
+            int fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, reliableSequenceNumber, startSequenceNumber, totalLength;
             ushort reliableWindow, currentWindow;
             ENetChannel channel = null;
             ENetListNode<ENetIncomingCommand> currentCommand;
@@ -661,11 +662,11 @@ namespace ENet.NET
             }
 
             fragmentLength = ENET_NET_TO_HOST_16(command.sendFragment.dataLength);
-            *currentData  += fragmentLength;
+            currentData  = currentData.Slice((int)fragmentLength);
             if (fragmentLength <= 0 ||
                 fragmentLength > host.maximumPacketSize ||
-                *currentData < host.receivedData ||
-                *currentData > &host.receivedData[host.receivedDataLength]
+                currentData.Offset < host.receivedData.Offset ||
+                currentData.Offset > host.receivedDataLength
             ) {
                 return -1;
             }
@@ -674,14 +675,14 @@ namespace ENet.NET
             reliableSequenceNumber = command.header.reliableSequenceNumber;
             startSequenceNumber    = ENET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
 
-            reliableWindow = (ushort)(reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
-            currentWindow = (ushort)(channel.incomingReliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE);
+            reliableWindow = (ushort)(reliableSequenceNumber / ENET_PEER_RELIABLE_WINDOW_SIZE);
+            currentWindow = (ushort)(channel.incomingReliableSequenceNumber / ENET_PEER_RELIABLE_WINDOW_SIZE);
 
             if (reliableSequenceNumber < channel.incomingReliableSequenceNumber) {
-                reliableWindow += ENets.ENET_PEER_RELIABLE_WINDOWS;
+                reliableWindow += ENET_PEER_RELIABLE_WINDOWS;
             }
 
-            if (reliableWindow < currentWindow || reliableWindow >= currentWindow + ENets.ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
+            if (reliableWindow < currentWindow || reliableWindow >= currentWindow + ENET_PEER_FREE_RELIABLE_WINDOWS - 1) {
                 return 0;
             }
 
@@ -689,12 +690,12 @@ namespace ENet.NET
                 return 0;
             }
 
-            fragmentNumber = ENET_NET_TO_HOST_32(command.sendFragment.fragmentNumber);
-            fragmentCount  = ENET_NET_TO_HOST_32(command.sendFragment.fragmentCount);
-            fragmentOffset = ENET_NET_TO_HOST_32(command.sendFragment.fragmentOffset);
-            totalLength    = ENET_NET_TO_HOST_32(command.sendFragment.totalLength);
+            fragmentNumber = (int)ENET_NET_TO_HOST_32(command.sendFragment.fragmentNumber);
+            fragmentCount  = (int)ENET_NET_TO_HOST_32(command.sendFragment.fragmentCount);
+            fragmentOffset = (int)ENET_NET_TO_HOST_32(command.sendFragment.fragmentOffset);
+            totalLength    = (int)ENET_NET_TO_HOST_32(command.sendFragment.totalLength);
 
-            if (fragmentCount > ENets.ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
+            if (fragmentCount > ENET_PROTOCOL_MAXIMUM_FRAGMENT_COUNT ||
                 fragmentNumber >= fragmentCount ||
                 totalLength > host.maximumPacketSize ||
                 totalLength < fragmentCount ||
@@ -753,12 +754,13 @@ namespace ENet.NET
                 }
             }
 
-            if ((startCommand.fragments[fragmentNumber / 32] & (1u << (fragmentNumber % 32))) == 0) {
+            if ((startCommand.fragments[fragmentNumber / 32] & (1u << (int)(fragmentNumber % 32))) == 0) {
                 --startCommand.fragmentsRemaining;
-                startCommand.fragments[fragmentNumber / 32] |= (1u << (fragmentNumber % 32));
+                startCommand.fragments[fragmentNumber / 32] |= (1u << (int)(fragmentNumber % 32));
 
-                if (fragmentOffset + fragmentLength > startCommand.packet.dataLength) {
-                    fragmentLength = startCommand.packet.dataLength - fragmentOffset;
+                if (fragmentOffset + fragmentLength > startCommand.packet.dataLength)
+                {
+                    fragmentLength = (int)(startCommand.packet.dataLength - fragmentOffset);
                 }
 
                 memcpy(startCommand.packet.data + fragmentOffset, (byte *) command + Marshal.SizeOf<ENetProtocolSendFragment>(), fragmentLength);
@@ -799,19 +801,19 @@ namespace ENet.NET
             peer.outgoingBandwidth = ENET_NET_TO_HOST_32(command.bandwidthLimit.outgoingBandwidth);
 
             if (peer.incomingBandwidth == 0 && host.outgoingBandwidth == 0) {
-                peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+                peer.windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             } else if (peer.incomingBandwidth == 0 || host.outgoingBandwidth == 0) {
                 peer.windowSize = (Math.Max(peer.incomingBandwidth, host.outgoingBandwidth)
-                  / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+                  / ENET_PEER_WINDOW_SIZE_SCALE) * ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             } else {
                 peer.windowSize = (Math.Min(peer.incomingBandwidth, host.outgoingBandwidth)
-                  / ENets.ENET_PEER_WINDOW_SIZE_SCALE) * ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+                  / ENET_PEER_WINDOW_SIZE_SCALE) * ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             }
 
-            if (peer.windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-                peer.windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
-            } else if (peer.windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-                peer.windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            if (peer.windowSize < ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+                peer.windowSize = ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            } else if (peer.windowSize > ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+                peer.windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             }
 
             return 0;
@@ -968,7 +970,7 @@ namespace ENet.NET
 
             channelCount = ENET_NET_TO_HOST_32(command.verifyConnect.channelCount);
 
-            if (channelCount < ENets.ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENets.ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT ||
+            if (channelCount < ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT ||
                 ENET_NET_TO_HOST_32(command.verifyConnect.packetThrottleInterval) != peer.packetThrottleInterval ||
                 ENET_NET_TO_HOST_32(command.verifyConnect.packetThrottleAcceleration) != peer.packetThrottleAcceleration ||
                 ENET_NET_TO_HOST_32(command.verifyConnect.packetThrottleDeceleration) != peer.packetThrottleDeceleration ||
@@ -991,10 +993,10 @@ namespace ENet.NET
 
             mtu = ENET_NET_TO_HOST_32(command.verifyConnect.mtu);
 
-            if (mtu < ENets.ENET_PROTOCOL_MINIMUM_MTU) {
-                mtu = ENets.ENET_PROTOCOL_MINIMUM_MTU;
-            } else if (mtu > ENets.ENET_PROTOCOL_MAXIMUM_MTU) {
-                mtu = ENets.ENET_PROTOCOL_MAXIMUM_MTU;
+            if (mtu < ENET_PROTOCOL_MINIMUM_MTU) {
+                mtu = ENET_PROTOCOL_MINIMUM_MTU;
+            } else if (mtu > ENET_PROTOCOL_MAXIMUM_MTU) {
+                mtu = ENET_PROTOCOL_MAXIMUM_MTU;
             }
 
             if (mtu < peer.mtu) {
@@ -1002,12 +1004,12 @@ namespace ENet.NET
             }
 
             windowSize = ENET_NET_TO_HOST_32(command.verifyConnect.windowSize);
-            if (windowSize < ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
-                windowSize = ENets.ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
+            if (windowSize < ENET_PROTOCOL_MINIMUM_WINDOW_SIZE) {
+                windowSize = ENET_PROTOCOL_MINIMUM_WINDOW_SIZE;
             }
 
-            if (windowSize > ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
-                windowSize = ENets.ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
+            if (windowSize > ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE) {
+                windowSize = ENET_PROTOCOL_MAXIMUM_WINDOW_SIZE;
             }
 
             if (windowSize < peer.windowSize) {
@@ -1022,10 +1024,9 @@ namespace ENet.NET
         } /* enet_protocol_handle_verify_connect */
 
         public static int enet_protocol_handle_incoming_commands(ENetHost host, ENetEvent @event) {
-            ENetProtocol command = new ENetProtocol();
             ENetPeer peer = null;
             ArraySegment<byte> currentData;
-            long headerSize;
+            int headerSize;
             ushort peerID, flags;
             byte sessionID;
 
@@ -1033,7 +1034,7 @@ namespace ENet.NET
                 return 0;
             }
 
-            ref ENetProtocolHeader header = ref host.receivedData;
+            ENetProtocolHeader header = new ENetProtocolHeader(host.receivedData);
 
             peerID    = ENET_NET_TO_HOST_16(header.peerID);
             sessionID = (byte)((peerID & ENetProtocolFlag.ENET_PROTOCOL_HEADER_SESSION_MASK) >> ENetProtocolFlag.ENET_PROTOCOL_HEADER_SESSION_SHIFT);
@@ -1049,9 +1050,9 @@ namespace ENet.NET
                     return 0;
                 }
 
-                byte * headerExtraPeerID = (byte *) & host.receivedData [headerSize];
-                byte peerIDExtra = *headerExtraPeerID;
-                peerID = (peerID & 0x07FF) | ((ushort)peerIDExtra << 11);
+                ArraySegment<byte> headerExtraPeerID = new ArraySegment<byte>(host.receivedData, headerSize, host.receivedData.Length - headerSize);
+                byte peerIDExtra = headerExtraPeerID[0];
+                peerID = (ushort)((peerID & 0x07FF) | ((ushort)peerIDExtra << 11));
 
                 headerSize += sizeof (byte);
             }
@@ -1064,7 +1065,7 @@ namespace ENet.NET
                 headerSize += Marshal.SizeOf<uint>();
             }
 
-            if (peerID == ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID) {
+            if (peerID == ENET_PROTOCOL_MAXIMUM_PEER_ID) {
                 peer = null;
             } else if (peerID >= host.peerCount) {
                 return 0;
@@ -1076,7 +1077,7 @@ namespace ENet.NET
                     ((!in6_equal(host.receivedAddress.host , peer.address.host) ||
                     host.receivedAddress.port != peer.address.port) &&
                     1 /* no broadcast in ipv6  !in6_equal(peer.address.host , ENET_HOST_BROADCAST)*/) ||
-                    (peer.outgoingPeerID < ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID &&
+                    (peer.outgoingPeerID < ENET_PROTOCOL_MAXIMUM_PEER_ID &&
                     sessionID != peer.incomingSessionID)
                 ) {
                     return 0;
@@ -1127,15 +1128,15 @@ namespace ENet.NET
                 peer.totalDataReceived += host.receivedDataLength;
             }
 
-            currentData = host.receivedData + headerSize;
+            currentData = new ArraySegment<byte>(host.receivedData, headerSize, host.receivedDataLength);
 
-            while (currentData < &host.receivedData[host.receivedDataLength]) {
+            while (currentData.Offset < host.receivedDataLength) {
                 byte commandNumber;
-                long commandSize;
+                int commandSize;
 
-                command = (ENetProtocol *) currentData;
+                ENetProtocol command = new ENetProtocol(currentData);
 
-                if (currentData + Marshal.SizeOf<ENetProtocolCommandHeader>() > &host.receivedData[host.receivedDataLength]) {
+                if (currentData.Offset + Marshal.SizeOf<ENetProtocolCommandHeader>() > host.receivedDataLength) {
                     break;
                 }
 
@@ -1145,13 +1146,13 @@ namespace ENet.NET
                 }
 
                 commandSize = commandSizes[commandNumber];
-                if (commandSize == 0 || currentData + commandSize > &host.receivedData[host.receivedDataLength]) {
+                if (commandSize == 0 || currentData.Offset + commandSize > host.receivedDataLength) {
                     break;
                 }
 
-                currentData += commandSize;
+                currentData = currentData.Slice(commandSize);
 
-                if (peer == null && (commandNumber != ENetProtocolCommand.ENET_PROTOCOL_COMMAND_CONNECT || currentData < &host.receivedData[host.receivedDataLength])) {
+                if (peer == null && (commandNumber != ENetProtocolCommand.ENET_PROTOCOL_COMMAND_CONNECT || currentData.Offset < host.receivedDataLength)) {
                     break;
                 }
 
@@ -1308,7 +1309,7 @@ namespace ENet.NET
                 host.totalReceivedPackets++;
 
                 if (host.intercept != null) {
-                    switch (host.intercept(host, (void *)@event)) {
+                    switch (host.intercept(host, @event)) {
                         case 1:
                             if (@event != null && @event.type != ENetEventType.ENET_EVENT_TYPE_NONE) {
                                 return 1;
@@ -1340,16 +1341,19 @@ namespace ENet.NET
         } /* enet_protocol_receive_incoming_commands */
 
         public static void enet_protocol_send_acknowledgements(ENetHost host, ENetPeer peer) {
-            ref ENetProtocol command = ref host.commands[host.commandCount];
-            ref ENetBuffer buffer    = ref host.buffers[host.bufferCount];
+            int ncommand = host.commandCount;
+            int nbuffer    = host.bufferCount;
             ENetListNode<ENetAcknowledgement> currentAcknowledgement = null;
             ushort reliableSequenceNumber;
 
             currentAcknowledgement = enet_list_begin(ref peer.acknowledgements);
 
             while (currentAcknowledgement != enet_list_end(ref peer.acknowledgements)) {
-                if (command >= &host.commands[sizeof(host.commands) / Marshal.SizeOf<ENetProtocol>()] ||
-                    buffer >= &host.buffers[sizeof(host.buffers) / Marshal.SizeOf<ENetBuffer>()] ||
+                ref ENetProtocol command = ref host.commands[ncommand];
+                ref ENetBuffer buffer    = ref host.buffers[nbuffer];
+                
+                if (ncommand >= host.commands.Length ||
+                    nbuffer >= host.buffers.Length ||
                     peer.mtu - host.packetSize < Marshal.SizeOf<ENetProtocolAcknowledge>()
                 ) {
                     peer.flags |= ENetPeerFlag.ENET_PEER_FLAG_CONTINUE_SENDING;
@@ -1359,7 +1363,7 @@ namespace ENet.NET
                 ref ENetAcknowledgement acknowledgement = ref currentAcknowledgement.value;
                 currentAcknowledgement = enet_list_next(currentAcknowledgement);
 
-                buffer.data       = command;
+                buffer.data       = command.bytes.AsSpan();
                 buffer.dataLength = Marshal.SizeOf<ENetProtocolAcknowledge>();
                 host.packetSize += buffer.dataLength;
 
@@ -1378,12 +1382,12 @@ namespace ENet.NET
                 enet_list_remove(acknowledgement.acknowledgementList);
                 enet_free(acknowledgement);
 
-                ++command;
-                ++buffer;
+                ++ncommand;
+                ++nbuffer;
             }
 
-            host.commandCount = command - host.commands;
-            host.bufferCount  = buffer - host.buffers;
+            host.commandCount = ncommand;
+            host.bufferCount = nbuffer;
         } /* enet_protocol_send_acknowledgements */
 
         public static int enet_protocol_check_timeouts(ENetHost host, ENetPeer peer, ENetEvent @event)
@@ -1440,9 +1444,11 @@ namespace ENet.NET
             return 0;
         } /* enet_protocol_check_timeouts */
 
-        public static int enet_protocol_check_outgoing_commands(ENetHost host, ENetPeer peer, ref ENetList<ENetOutgoingCommand> sentUnreliableCommands) {
-            ref ENetProtocol command = ref host.commands[host.commandCount];
-            ref ENetBuffer buffer    = ref host.buffers[host.bufferCount];
+        public static int enet_protocol_check_outgoing_commands(ENetHost host, ENetPeer peer, ref ENetList<ENetOutgoingCommand> sentUnreliableCommands) 
+        {
+            int ncommand = host.commandCount;
+            int nbuffer    = host.bufferCount;
+            
             ENetOutgoingCommand outgoingCommand = null;
             ENetListNode<ENetOutgoingCommand> currentCommand, currentSendReliableCommand = null;
             ENetChannel channel = null;
@@ -1472,15 +1478,15 @@ namespace ENet.NET
 
                 if (0 != (outgoingCommand.command.header.command & ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE)) {
                     channel = outgoingCommand.command.header.channelID < peer.channelCount ? & peer.channels [outgoingCommand.command.header.channelID] : null;
-                    reliableWindow = outgoingCommand.reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
+                    reliableWindow = outgoingCommand.reliableSequenceNumber / ENET_PEER_RELIABLE_WINDOW_SIZE;
                     if (channel != null) {
-                        if (windowWrap) {
+                        if (0 != windowWrap) {
                             continue;
                         } else if (outgoingCommand.sendAttempts < 1 && 
-                                !(outgoingCommand.reliableSequenceNumber % ENets.ENET_PEER_RELIABLE_WINDOW_SIZE) &&
-                                (channel.reliableWindows [(reliableWindow + ENets.ENET_PEER_RELIABLE_WINDOWS - 1) % ENets.ENET_PEER_RELIABLE_WINDOWS] >= ENets.ENET_PEER_RELIABLE_WINDOW_SIZE ||
-                                channel.usedReliableWindows & ((((1u << (ENets.ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) << reliableWindow) | 
-                                (((1u << (ENets.ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) >> (ENets.ENET_PEER_RELIABLE_WINDOWS - reliableWindow))))) 
+                                0 == (outgoingCommand.reliableSequenceNumber % ENET_PEER_RELIABLE_WINDOW_SIZE) &&
+                                (channel.reliableWindows [(reliableWindow + ENET_PEER_RELIABLE_WINDOWS - 1) % ENET_PEER_RELIABLE_WINDOWS] >= ENET_PEER_RELIABLE_WINDOW_SIZE ||
+                                0 != (channel.usedReliableWindows & ((((1u << (ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) << reliableWindow)) | 
+                                (((1u << (ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) >> (ENET_PEER_RELIABLE_WINDOWS - reliableWindow))))) 
                         {
                             windowWrap = 1;
                             currentSendReliableCommand = enet_list_end(ref peer.outgoingSendReliableCommands);
@@ -1489,7 +1495,7 @@ namespace ENet.NET
                     }
 
                     if (outgoingCommand.packet != null) {
-                        long windowSize = (peer.packetThrottle * peer.windowSize) / ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
+                        long windowSize = (peer.packetThrottle * peer.windowSize) / ENET_PEER_PACKET_THROTTLE_SCALE;
 
                         if (peer.reliableDataInTransit + outgoingCommand.fragmentLength > Math.Max (windowSize, peer.mtu))
                         {
@@ -1501,9 +1507,12 @@ namespace ENet.NET
                     canPing = 0;
                 }
 
+                ref ENetProtocol command = ref host.commands[host.commandCount];
+                ref ENetBuffer buffer    = ref host.buffers[host.bufferCount];
+
                 commandSize = commandSizes[outgoingCommand.command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK];
-                if (command >= &host.commands[sizeof(host.commands) / Marshal.SizeOf<ENetProtocol>()] ||
-                    buffer + 1 >= &host.buffers[sizeof(host.buffers) / Marshal.SizeOf<ENetBuffer>()] ||
+                if (ncommand >= host.commands.Length ||
+                    nbuffer + 1 >= host.buffers.Length ||
                     peer.mtu - host.packetSize < commandSize ||
                     (outgoingCommand.packet != null &&
                     (ushort) (peer.mtu - host.packetSize) < (ushort) (commandSize + outgoingCommand.fragmentLength))
@@ -1514,16 +1523,18 @@ namespace ENet.NET
 
                 if (0 != (outgoingCommand.command.header.command & ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE)) {
                     channel = outgoingCommand.command.header.channelID < peer.channelCount ? & peer.channels [outgoingCommand.command.header.channelID] : null;
-                    reliableWindow = outgoingCommand.reliableSequenceNumber / ENets.ENET_PEER_RELIABLE_WINDOW_SIZE;
-                    if (channel != null && outgoingCommand.sendAttempts < 1) {
-                        channel.usedReliableWindows |= 1u << reliableWindow;
+                    reliableWindow = outgoingCommand.reliableSequenceNumber / ENET_PEER_RELIABLE_WINDOW_SIZE;
+                    if (channel != null && outgoingCommand.sendAttempts < 1)
+                    {
+                        channel.usedReliableWindows |= (ushort)(1u << reliableWindow);
                         ++channel.reliableWindows[reliableWindow];
                     }
 
                     ++outgoingCommand.sendAttempts;
 
-                    if (outgoingCommand.roundTripTimeout == 0) {
-                        outgoingCommand.roundTripTimeout = peer.roundTripTime + 4 * peer.roundTripTimeVariance;
+                    if (outgoingCommand.roundTripTimeout == 0)
+                    {
+                        outgoingCommand.roundTripTimeout = (uint)(peer.roundTripTime + 4 * peer.roundTripTimeVariance);
                     }
 
                     if (enet_list_empty(ref peer.sentReliableCommands)) {
@@ -1538,8 +1549,8 @@ namespace ENet.NET
                     peer.reliableDataInTransit += outgoingCommand.fragmentLength;
                 } else {
                     if (outgoingCommand.packet != null && outgoingCommand.fragmentOffset == 0) {
-                        peer.packetThrottleCounter += ENets.ENET_PEER_PACKET_THROTTLE_COUNTER;
-                        peer.packetThrottleCounter %= ENets.ENET_PEER_PACKET_THROTTLE_SCALE;
+                        peer.packetThrottleCounter += ENET_PEER_PACKET_THROTTLE_COUNTER;
+                        peer.packetThrottleCounter %= ENET_PEER_PACKET_THROTTLE_SCALE;
 
                         if (peer.packetThrottleCounter > peer.packetThrottle) {
                             ushort reliableSequenceNumber = outgoingCommand.reliableSequenceNumber,
@@ -1588,8 +1599,8 @@ namespace ENet.NET
                 command = outgoingCommand.command;
 
                 if (outgoingCommand.packet != null) {
-                    ++buffer;
-                    buffer.data       = outgoingCommand.packet.data + outgoingCommand.fragmentOffset;
+                    ++nbuffer;
+                    buffer.data       = new ArraySegment<byte>(outgoingCommand.packet.data, outgoingCommand.fragmentOffset, outgoingCommand.packet.data.Length - outgoingCommand.fragmentOffset);
                     buffer.dataLength = outgoingCommand.fragmentLength;
                     host.packetSize += outgoingCommand.fragmentLength;
                 } else if(0 == (outgoingCommand.command.header.command & ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE)) {
@@ -1599,12 +1610,12 @@ namespace ENet.NET
                 ++peer.packetsSent;
                 ++peer.totalPacketsSent;
 
-                ++command;
-                ++buffer;
+                ++ncommand;
+                ++nbuffer;
             }
 
-            host.commandCount = command - host.commands;
-            host.bufferCount  = buffer - host.buffers;
+            host.commandCount = ncommand;
+            host.bufferCount = nbuffer;
 
             if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER &&
                 !enet_peer_has_outgoing_commands (peer) &&
@@ -1615,14 +1626,11 @@ namespace ENet.NET
             return canPing;
         } /* enet_protocol_send_reliable_outgoing_commands */
 
-        public static int enet_protocol_send_outgoing_commands(ENetHost host, ENetEvent @event, int checkForTimeouts) 
+
+        public static int enet_protocol_send_outgoing_commands(ENetHost host, ENetEvent @event, int checkForTimeouts)
         {
-            Span<byte> headerData = stackalloc byte[
-                Marshal.SizeOf<ENetProtocolHeader>()
-                + Marshal.SizeOf<byte>() // additional peer id byte
-                + Marshal.SizeOf<uint>()
-            ];
-            ref ENetProtocolHeader header = (ENetProtocolHeader) headerData;
+            ENetProtocolSendOutgoingCommand headerData = new ENetProtocolSendOutgoingCommand();
+            ref ENetProtocolHeader header = ref headerData.header;
             int sentLength = 0;
             long shouldCompress = 0;
             ENetList<ENetOutgoingCommand> sentUnreliableCommands = new ENetList<ENetOutgoingCommand>();
@@ -1636,11 +1644,11 @@ namespace ENet.NET
                 for(int i = 0; i < host.peerCount; ++i)
                 {
                     currentPeer = host.peers[i];
-                    if (currentPeer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECTED || currentPeer.state == ENetPeerState.ENET_PEER_STATE_ZOMBIE || (sendPass > 0 && ! (currentPeer.flags & ENetPeerFlag.ENET_PEER_FLAG_CONTINUE_SENDING))) {
+                    if (currentPeer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECTED || currentPeer.state == ENetPeerState.ENET_PEER_STATE_ZOMBIE || (sendPass > 0 && 0 == (currentPeer.flags & ENetPeerFlag.ENET_PEER_FLAG_CONTINUE_SENDING))) {
                         continue;
                     }
 
-                    currentPeer.flags &= ~ENetPeerFlag.ENET_PEER_FLAG_CONTINUE_SENDING;
+                    currentPeer.flags &= unchecked((ushort)~ENetPeerFlag.ENET_PEER_FLAG_CONTINUE_SENDING);
 
                     host.headerFlags  = 0;
                     host.commandCount = 0;
@@ -1680,15 +1688,15 @@ namespace ENet.NET
 
                     if (currentPeer.packetLossEpoch == 0) {
                         currentPeer.packetLossEpoch = host.serviceTime;
-                    } else if (ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.packetLossEpoch) >= ENets.ENET_PEER_PACKET_LOSS_INTERVAL && currentPeer.packetsSent > 0) {
-                        long packetLoss = currentPeer.packetsLost * ENets.ENET_PEER_PACKET_LOSS_SCALE / currentPeer.packetsSent;
+                    } else if (ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.packetLossEpoch) >= ENET_PEER_PACKET_LOSS_INTERVAL && currentPeer.packetsSent > 0) {
+                        long packetLoss = currentPeer.packetsLost * ENET_PEER_PACKET_LOSS_SCALE / currentPeer.packetsSent;
 
     #if DEBUG
                         printf(
                             "peer %u: %f%%+-%f%% packet loss, %u+-%u ms round trip time, %f%% throttle, %llu outgoing, %llu/%llu incoming\n", currentPeer.incomingPeerID,
-                            currentPeer.packetLoss / (float) ENets.ENET_PEER_PACKET_LOSS_SCALE,
-                            currentPeer.packetLossVariance / (float) ENets.ENET_PEER_PACKET_LOSS_SCALE, currentPeer.roundTripTime, currentPeer.roundTripTimeVariance,
-                            currentPeer.packetThrottle / (float) ENets.ENET_PEER_PACKET_THROTTLE_SCALE,
+                            currentPeer.packetLoss / (float) ENET_PEER_PACKET_LOSS_SCALE,
+                            currentPeer.packetLossVariance / (float) ENET_PEER_PACKET_LOSS_SCALE, currentPeer.roundTripTime, currentPeer.roundTripTimeVariance,
+                            currentPeer.packetThrottle / (float) ENET_PEER_PACKET_THROTTLE_SCALE,
                             enet_list_size(ref currentPeer.outgoingCommands),
                             currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingReliableCommands) : 0,
                             currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingUnreliableCommands) : 0
@@ -1725,7 +1733,7 @@ namespace ENet.NET
                         }
                     }
 
-                    if (currentPeer.outgoingPeerID < ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID)
+                    if (currentPeer.outgoingPeerID < ENET_PROTOCOL_MAXIMUM_PEER_ID)
                     {
                         host.headerFlags |= (ushort)(currentPeer.outgoingSessionID << ENetProtocolFlag.ENET_PROTOCOL_HEADER_SESSION_SHIFT);
                     }
@@ -1753,7 +1761,7 @@ namespace ENet.NET
 
                     if (host.checksum != null) {
                         uint *checksum = (uint *) &headerData[host.buffers[0].dataLength];
-                        *checksum = currentPeer.outgoingPeerID < ENets.ENET_PROTOCOL_MAXIMUM_PEER_ID ? currentPeer.connectID : 0;
+                        *checksum = currentPeer.outgoingPeerID < ENET_PROTOCOL_MAXIMUM_PEER_ID ? currentPeer.connectID : 0;
                         host.buffers[0].dataLength += Marshal.SizeOf<uint>();
                         *checksum = host.checksum(host.buffers, host.bufferCount);
                     }

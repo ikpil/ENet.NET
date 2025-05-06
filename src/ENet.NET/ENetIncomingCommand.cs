@@ -6,8 +6,8 @@
         public ushort reliableSequenceNumber;
         public ushort unreliableSequenceNumber;
         public ENetProtocol command;
-        public uint fragmentCount;
-        public uint fragmentsRemaining;
+        public long fragmentCount;
+        public long fragmentsRemaining;
         public uint[] fragments;
         public ENetPacket packet;
     }

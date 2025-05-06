@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Using Include="NUnit.Framework" />
+    <ProjectReference Include="..\..\src\ENet.NET\ENet.NET.csproj" />
   </ItemGroup>
 
 </Project>

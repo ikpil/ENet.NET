@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 
 namespace ENet.NET
 {
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ENetFixedArray256<T> where T : unmanaged
     {
         public const int Size = 256;

@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 
 namespace ENet.NET
 {
@@ -7,5 +8,11 @@ namespace ENet.NET
     {
         public ushort peerID;
         public ushort sentTime;
+
+        public ENetProtocolHeader(ReadOnlySpan<byte> bytes)
+        {
+            peerID = BitConverter.ToUInt16(bytes);
+            sentTime = BitConverter.ToUInt16(bytes.Slice(2));
+        }
     }
 }

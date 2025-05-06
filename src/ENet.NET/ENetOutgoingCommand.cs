@@ -8,7 +8,7 @@
         public long sentTime;
         public uint roundTripTimeout;
         public uint queueTime;
-        public uint fragmentOffset;
+        public int fragmentOffset;
         public ushort fragmentLength;
         public ushort sendAttempts;
         public ENetProtocol command;
