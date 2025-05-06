@@ -120,7 +120,7 @@ namespace ENet.NET
             host.compressor.destroy = null;
             host.intercept = null;
 
-            enet_list_clear(ref host.dispatchQueue);
+            enet_list_clear(host.dispatchQueue);
 
             for (int i = 0; i < host.peerCount; ++i)
             {
@@ -130,11 +130,11 @@ namespace ENet.NET
                 currentPeer.outgoingSessionID = currentPeer.incomingSessionID = 0xFF;
                 currentPeer.data = null;
 
-                enet_list_clear(ref currentPeer.acknowledgements);
-                enet_list_clear(ref currentPeer.sentReliableCommands);
-                enet_list_clear(ref currentPeer.outgoingCommands);
-                enet_list_clear(ref currentPeer.outgoingSendReliableCommands);
-                enet_list_clear(ref currentPeer.dispatchedCommands);
+                enet_list_clear(currentPeer.acknowledgements);
+                enet_list_clear(currentPeer.sentReliableCommands);
+                enet_list_clear(currentPeer.outgoingCommands);
+                enet_list_clear(currentPeer.outgoingSendReliableCommands);
+                enet_list_clear(currentPeer.dispatchedCommands);
 
                 enet_peer_reset(currentPeer);
             }
@@ -255,8 +255,8 @@ namespace ENet.NET
                 channel.incomingReliableSequenceNumber = 0;
                 channel.incomingUnreliableSequenceNumber = 0;
 
-                enet_list_clear(ref channel.incomingReliableCommands);
-                enet_list_clear(ref channel.incomingUnreliableCommands);
+                enet_list_clear(channel.incomingReliableCommands);
+                enet_list_clear(channel.incomingUnreliableCommands);
 
                 channel.usedReliableWindows = 0;
                 Array.Fill(channel.reliableWindows, (ushort)0);

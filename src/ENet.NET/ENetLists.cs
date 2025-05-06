@@ -1,4 +1,6 @@
-﻿namespace ENet.NET
+﻿using System.Collections.Generic;
+
+namespace ENet.NET
 {
     public static class ENetLists
     {
@@ -7,97 +9,86 @@
         // ! List
         // !
         // =======================================================================//
-        public static ENetListNode<T> enet_list_begin<T>(ref ENetList<T> list)
+        public static LinkedListNode<T> enet_list_begin<T>(LinkedList<T> list)
         {
-            return list.sentinel.next;
+            return list.First;
         }
 
-        public static ENetListNode<T> enet_list_end<T>(ref ENetList<T> list)
+        public static LinkedListNode<T> enet_list_end<T>(LinkedList<T> list)
         {
-            return list.sentinel;
+            return list.Last;
         }
 
-        public static bool enet_list_empty<T>(ref ENetList<T> list)
+        public static bool enet_list_empty<T>(LinkedList<T> list)
         {
-            return enet_list_begin(ref list) == enet_list_end(ref list);
+            return enet_list_begin(list) == enet_list_end(list);
         }
 
-        public static ENetListNode<T> enet_list_next<T>(ENetListNode<T> iterator)
+        public static LinkedListNode<T> enet_list_next<T>(LinkedListNode<T> iterator)
         {
-            return iterator.next;
+            return iterator.Next;
         }
 
-        public static ENetListNode<T> enet_list_previous<T>(ENetListNode<T> iterator)
+        public static LinkedListNode<T> enet_list_previous<T>(LinkedListNode<T> iterator)
         {
-            return iterator.previous;
+            return iterator.Previous;
         }
 
-        public static ref T enet_list_front<T>(ref ENetList<T> list)
+        public static T enet_list_front<T>(LinkedList<T> list)
         {
-            return ref list.sentinel.next.value;
+            return list.First.Value;
         }
 
-        public static ref T enet_list_back<T>(ref ENetList<T> list)
+        public static T enet_list_back<T>(LinkedList<T> list)
         {
-            return ref list.sentinel.previous.value;
+            return list.Last.Value;
         }
 
 
-        public static void enet_list_clear<T>(ref ENetList<T> list)
+        public static void enet_list_clear<T>(LinkedList<T> list)
         {
-            list.sentinel.next = list.sentinel;
-            list.sentinel.previous = list.sentinel;
+            list.Clear();
         }
 
-        public static ENetListNode<T> enet_list_insert<T>(ENetListNode<T> position, object data)
+        public static LinkedListNode<T> enet_list_insert<T>(LinkedListNode<T> position, T data)
         {
-            ENetListNode<T> result = (ENetListNode<T>)data;
-
-            result.previous = position.previous;
-            result.next = position;
-
-            result.previous.next = result;
-            position.previous = result;
-
-            return result;
+            return position.List.AddAfter(position, data);
+        }
+        
+        public static LinkedListNode<T> enet_list_insert<T>(LinkedListNode<T> position, LinkedListNode<T> data)
+        {
+            position.List.AddAfter(position, data);
+            return data;
         }
 
-        public static T enet_list_remove<T>(ENetListNode<T> position)
+        public static T enet_list_remove<T>(LinkedListNode<T> position)
         {
-            position.previous.next = position.next;
-            position.next.previous = position.previous;
-
-            return position.value;
+            position.List.Remove(position);
+            return position.Value;
         }
 
-        public static ENetListNode<T> enet_list_move<T>(ENetListNode<T> position, object dataFirst, object dataLast)
+        public static LinkedListNode<T> enet_list_move<T>(LinkedListNode<T> position, LinkedListNode<T> first, LinkedListNode<T> last)
         {
-            ENetListNode<T> first = (ENetListNode<T>)dataFirst;
-            ENetListNode<T> last = (ENetListNode<T>)dataLast;
+            var list = position.List;
+            var current = first;
+            while (null != current)
+            {
+                var next = current.Next;
+                list.Remove(current);
+                list.AddBefore(position, current);
 
-            first.previous.next = last.next;
-            last.next.previous = first.previous;
-
-            first.previous = position.previous;
-            last.next = position;
-
-            first.previous.next = first;
-            position.previous = last;
+                if (current == last)
+                    break;
+                
+                current = next;
+            }
 
             return first;
         }
 
-        public static int enet_list_size<T>(ref ENetList<T> list)
+        public static int enet_list_size<T>(LinkedList<T> list)
         {
-            int size = 0;
-            ENetListNode<T> position;
-
-            for (position = enet_list_begin(ref list); position != enet_list_end(ref list); position = enet_list_next(position))
-            {
-                ++size;
-            }
-
-            return size;
+            return list.Count;
         }
     }
 }

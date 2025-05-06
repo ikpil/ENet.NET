@@ -1,8 +1,10 @@
-﻿namespace ENet.NET
+﻿using System.Collections.Generic;
+
+namespace ENet.NET
 {
     public class ENetOutgoingCommand
     {
-        public ENetListNode<ENetOutgoingCommand> outgoingCommandList;
+        public LinkedListNode<ENetOutgoingCommand> outgoingCommandList;
         public ushort reliableSequenceNumber;
         public ushort unreliableSequenceNumber;
         public long sentTime;

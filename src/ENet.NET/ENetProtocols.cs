@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -63,16 +64,16 @@ namespace ENet.NET
 
             if (0 == (peer.flags & (uint)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
             {
-                enet_list_insert(enet_list_end(ref host.dispatchQueue), peer.dispatchList);
+                enet_list_insert(enet_list_end(host.dispatchQueue), peer.dispatchList);
                 peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
             }
         }
 
         public static int enet_protocol_dispatch_incoming_commands(ENetHost host, ENetEvent @event)
         {
-            while (!enet_list_empty(ref host.dispatchQueue))
+            while (!enet_list_empty(host.dispatchQueue))
             {
-                ENetPeer peer = enet_list_remove(enet_list_begin(ref host.dispatchQueue));
+                ENetPeer peer = enet_list_remove(enet_list_begin(host.dispatchQueue));
                 peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
 
                 switch (peer.state)
@@ -99,7 +100,7 @@ namespace ENet.NET
                         return 1;
 
                     case ENetPeerState.ENET_PEER_STATE_CONNECTED:
-                        if (enet_list_empty(ref peer.dispatchedCommands))
+                        if (enet_list_empty(peer.dispatchedCommands))
                         {
                             continue;
                         }
@@ -113,10 +114,10 @@ namespace ENet.NET
                         @event.type = ENetEventType.ENET_EVENT_TYPE_RECEIVE;
                         @event.peer = peer;
 
-                        if (!enet_list_empty(ref peer.dispatchedCommands))
+                        if (!enet_list_empty(peer.dispatchedCommands))
                         {
                             peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
-                            enet_list_insert(enet_list_end(ref host.dispatchQueue), peer.dispatchList);
+                            enet_list_insert(enet_list_end(host.dispatchQueue), peer.dispatchList);
                         }
 
                         return 1;
@@ -204,14 +205,14 @@ namespace ENet.NET
             }
         }
 
-        public static void enet_protocol_remove_sent_unreliable_commands(ENetPeer peer, ref ENetList<ENetOutgoingCommand> sentUnreliableCommands)
+        public static void enet_protocol_remove_sent_unreliable_commands(ENetPeer peer, LinkedList<ENetOutgoingCommand> sentUnreliableCommands)
         {
-            if (enet_list_empty(ref sentUnreliableCommands))
+            if (enet_list_empty(sentUnreliableCommands))
                 return;
 
             do
             {
-                ref ENetOutgoingCommand outgoingCommand = ref enet_list_front(ref sentUnreliableCommands);
+                ENetOutgoingCommand outgoingCommand = enet_list_front(sentUnreliableCommands);
                 enet_list_remove(outgoingCommand.outgoingCommandList);
 
                 if (outgoingCommand.packet != null)
@@ -226,7 +227,7 @@ namespace ENet.NET
                 }
 
                 enet_free(outgoingCommand);
-            } while (!enet_list_empty(ref sentUnreliableCommands));
+            } while (!enet_list_empty(sentUnreliableCommands));
 
             if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER && !enet_peer_has_outgoing_commands(peer))
             {
@@ -234,15 +235,15 @@ namespace ENet.NET
             }
         }
 
-        public static ENetOutgoingCommand enet_protocol_find_sent_reliable_command(ENetList<ENetOutgoingCommand> list, ushort reliableSequenceNumber, byte channelID)
+        public static ENetOutgoingCommand enet_protocol_find_sent_reliable_command(LinkedList<ENetOutgoingCommand> list, ushort reliableSequenceNumber, byte channelID)
         {
-            ENetListNode<ENetOutgoingCommand> currentCommand;
+            LinkedListNode<ENetOutgoingCommand> currentCommand;
 
-            for (currentCommand = enet_list_begin(ref list);
-                 currentCommand != enet_list_end(ref list);
+            for (currentCommand = enet_list_begin(list);
+                 currentCommand != enet_list_end(list);
                  currentCommand = enet_list_next(currentCommand))
             {
-                ENetOutgoingCommand outgoingCommand = currentCommand.value;
+                ENetOutgoingCommand outgoingCommand = currentCommand.Value;
 
                 if (0 == (outgoingCommand.command.header.command & ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE))
                 {
@@ -266,22 +267,22 @@ namespace ENet.NET
         public static byte enet_protocol_remove_sent_reliable_command(ENetPeer peer, ushort reliableSequenceNumber, byte channelID)
         {
             ENetOutgoingCommand outgoingCommand = null;
-            ENetListNode<ENetOutgoingCommand> currentCommand;
+            LinkedListNode<ENetOutgoingCommand> currentCommand;
             byte commandNumber;
             int wasSent = 1;
 
-            for (currentCommand = enet_list_begin(ref peer.sentReliableCommands);
-                 currentCommand != enet_list_end(ref peer.sentReliableCommands);
+            for (currentCommand = enet_list_begin(peer.sentReliableCommands);
+                 currentCommand != enet_list_end(peer.sentReliableCommands);
                  currentCommand = enet_list_next(currentCommand))
             {
-                outgoingCommand = currentCommand.value;
+                outgoingCommand = currentCommand.Value;
                 if (outgoingCommand.reliableSequenceNumber == reliableSequenceNumber && outgoingCommand.command.header.channelID == channelID)
                 {
                     break;
                 }
             }
 
-            if (currentCommand == enet_list_end(ref peer.sentReliableCommands))
+            if (currentCommand == enet_list_end(peer.sentReliableCommands))
             {
                 outgoingCommand = enet_protocol_find_sent_reliable_command(peer.outgoingCommands, reliableSequenceNumber, channelID);
                 if (outgoingCommand == null)
@@ -332,12 +333,12 @@ namespace ENet.NET
 
             enet_free(outgoingCommand);
 
-            if (enet_list_empty(ref peer.sentReliableCommands))
+            if (enet_list_empty(peer.sentReliableCommands))
             {
                 return commandNumber;
             }
 
-            outgoingCommand = enet_list_front(ref peer.sentReliableCommands);
+            outgoingCommand = enet_list_front(peer.sentReliableCommands);
             peer.nextTimeout = outgoingCommand.sentTime + outgoingCommand.roundTripTimeout;
 
             return commandNumber;
@@ -437,8 +438,8 @@ namespace ENet.NET
                 channel.incomingReliableSequenceNumber = 0;
                 channel.incomingUnreliableSequenceNumber = 0;
 
-                enet_list_clear(ref channel.incomingReliableCommands);
-                enet_list_clear(ref channel.incomingUnreliableCommands);
+                enet_list_clear(channel.incomingReliableCommands);
+                enet_list_clear(channel.incomingUnreliableCommands);
 
                 channel.usedReliableWindows = 0;
                 Array.Fill(channel.reliableWindows, (ushort)0);
@@ -630,7 +631,7 @@ namespace ENet.NET
             int fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, startSequenceNumber, totalLength;
             ENetChannel channel = null;
             long startWindow, currentWindow;
-            ENetListNode<ENetIncomingCommand> currentCommand = null;
+            LinkedListNode<ENetIncomingCommand> currentCommand = null;
             ENetIncomingCommand startCommand = null;
 
             if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER))
@@ -680,12 +681,12 @@ namespace ENet.NET
                 return -1;
             }
 
-            for (currentCommand = enet_list_previous(enet_list_end(ref channel.incomingReliableCommands));
-                 currentCommand != enet_list_end(ref channel.incomingReliableCommands);
+            for (currentCommand = enet_list_previous(enet_list_end(channel.incomingReliableCommands));
+                 currentCommand != enet_list_end(channel.incomingReliableCommands);
                  currentCommand = enet_list_previous(currentCommand)
                 )
             {
-                ENetIncomingCommand incomingCommand = currentCommand.value;
+                ENetIncomingCommand incomingCommand = currentCommand.Value;
 
                 if (startSequenceNumber >= channel.incomingReliableSequenceNumber)
                 {
@@ -759,7 +760,7 @@ namespace ENet.NET
             int fragmentNumber, fragmentCount, fragmentOffset, fragmentLength, reliableSequenceNumber, startSequenceNumber, totalLength;
             ushort reliableWindow, currentWindow;
             ENetChannel channel = null;
-            ENetListNode<ENetIncomingCommand> currentCommand;
+            LinkedListNode<ENetIncomingCommand> currentCommand;
             ENetIncomingCommand startCommand = null;
 
             if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER))
@@ -816,12 +817,12 @@ namespace ENet.NET
                 return -1;
             }
 
-            for (currentCommand = enet_list_previous(enet_list_end(ref channel.incomingUnreliableCommands));
-                 currentCommand != enet_list_end(ref channel.incomingUnreliableCommands);
+            for (currentCommand = enet_list_previous(enet_list_end(channel.incomingUnreliableCommands));
+                 currentCommand != enet_list_end(channel.incomingUnreliableCommands);
                  currentCommand = enet_list_previous(currentCommand)
                 )
             {
-                ENetIncomingCommand incomingCommand = currentCommand.value;
+                ENetIncomingCommand incomingCommand = currentCommand.Value;
 
                 if (reliableSequenceNumber >= channel.incomingReliableSequenceNumber)
                 {
@@ -1588,12 +1589,12 @@ namespace ENet.NET
         {
             int ncommand = host.commandCount;
             int nbuffer = host.bufferCount;
-            ENetListNode<ENetAcknowledgement> currentAcknowledgement = null;
+            LinkedListNode<ENetAcknowledgement> currentAcknowledgement = null;
             ushort reliableSequenceNumber;
 
-            currentAcknowledgement = enet_list_begin(ref peer.acknowledgements);
+            currentAcknowledgement = enet_list_begin(peer.acknowledgements);
 
-            while (currentAcknowledgement != enet_list_end(ref peer.acknowledgements))
+            while (currentAcknowledgement != enet_list_end(peer.acknowledgements))
             {
                 ref ENetProtocol command = ref host.commands[ncommand];
                 ref ENetBuffer buffer = ref host.buffers[nbuffer];
@@ -1607,7 +1608,7 @@ namespace ENet.NET
                     break;
                 }
 
-                ref ENetAcknowledgement acknowledgement = ref currentAcknowledgement.value;
+                ENetAcknowledgement acknowledgement = currentAcknowledgement.Value;
                 currentAcknowledgement = enet_list_next(currentAcknowledgement);
 
                 // todo : @ikpil check
@@ -1643,15 +1644,15 @@ namespace ENet.NET
         public static int enet_protocol_check_timeouts(ENetHost host, ENetPeer peer, ENetEvent @event)
         {
             ENetOutgoingCommand outgoingCommand = null;
-            ENetListNode<ENetOutgoingCommand> currentCommand, insertPosition, insertSendReliablePosition;
+            LinkedListNode<ENetOutgoingCommand> currentCommand, insertPosition, insertSendReliablePosition;
 
-            currentCommand = enet_list_begin(ref peer.sentReliableCommands);
-            insertPosition = enet_list_begin(ref peer.outgoingCommands);
-            insertSendReliablePosition = enet_list_begin(ref peer.outgoingSendReliableCommands);
+            currentCommand = enet_list_begin(peer.sentReliableCommands);
+            insertPosition = enet_list_begin(peer.outgoingCommands);
+            insertSendReliablePosition = enet_list_begin(peer.outgoingSendReliableCommands);
 
-            while (currentCommand != enet_list_end(ref peer.sentReliableCommands))
+            while (currentCommand != enet_list_end(peer.sentReliableCommands))
             {
-                outgoingCommand = currentCommand.value;
+                outgoingCommand = currentCommand.Value;
 
                 currentCommand = enet_list_next(currentCommand);
 
@@ -1692,9 +1693,9 @@ namespace ENet.NET
                     enet_list_insert(insertPosition, enet_list_remove(outgoingCommand.outgoingCommandList));
                 }
 
-                if (currentCommand == enet_list_begin(ref peer.sentReliableCommands) && !enet_list_empty(ref peer.sentReliableCommands))
+                if (currentCommand == enet_list_begin(peer.sentReliableCommands) && !enet_list_empty(peer.sentReliableCommands))
                 {
-                    outgoingCommand = currentCommand.value;
+                    outgoingCommand = currentCommand.Value;
                     peer.nextTimeout = outgoingCommand.sentTime + outgoingCommand.roundTripTimeout;
                 }
             }
@@ -1702,27 +1703,27 @@ namespace ENet.NET
             return 0;
         } /* enet_protocol_check_timeouts */
 
-        public static int enet_protocol_check_outgoing_commands(ENetHost host, ENetPeer peer, ref ENetList<ENetOutgoingCommand> sentUnreliableCommands)
+        public static int enet_protocol_check_outgoing_commands(ENetHost host, ENetPeer peer, LinkedList<ENetOutgoingCommand> sentUnreliableCommands)
         {
             int ncommand = host.commandCount;
             int nbuffer = host.bufferCount;
 
             ENetOutgoingCommand outgoingCommand = null;
-            ENetListNode<ENetOutgoingCommand> currentCommand, currentSendReliableCommand = null;
+            LinkedListNode<ENetOutgoingCommand> currentCommand, currentSendReliableCommand = null;
             ENetChannel channel = null;
             int reliableWindow = 0;
             long commandSize = 0;
             int windowWrap = 0, canPing = 1;
 
-            currentCommand = enet_list_begin(ref peer.outgoingCommands);
-            currentSendReliableCommand = enet_list_begin(ref peer.outgoingSendReliableCommands);
+            currentCommand = enet_list_begin(peer.outgoingCommands);
+            currentSendReliableCommand = enet_list_begin(peer.outgoingSendReliableCommands);
 
             for (;;)
             {
-                if (currentCommand != enet_list_end(ref peer.outgoingCommands))
+                if (currentCommand != enet_list_end(peer.outgoingCommands))
                 {
-                    outgoingCommand = currentCommand.value;
-                    if (currentSendReliableCommand != enet_list_end(ref peer.outgoingSendReliableCommands) && ENET_TIME_LESS(currentSendReliableCommand.value.queueTime, outgoingCommand.queueTime))
+                    outgoingCommand = currentCommand.Value;
+                    if (currentSendReliableCommand != enet_list_end(peer.outgoingSendReliableCommands) && ENET_TIME_LESS(currentSendReliableCommand.Value.queueTime, outgoingCommand.queueTime))
                     {
                         // todo : @ikpil check
                         enet_assert(false);
@@ -1731,10 +1732,10 @@ namespace ENet.NET
 
                     currentCommand = enet_list_next(currentCommand);
                 }
-                else if (currentSendReliableCommand != enet_list_end(ref peer.outgoingSendReliableCommands))
+                else if (currentSendReliableCommand != enet_list_end(peer.outgoingSendReliableCommands))
                 {
                     useSendReliableCommand:
-                    outgoingCommand = currentSendReliableCommand.value;
+                    outgoingCommand = currentSendReliableCommand.Value;
                     currentSendReliableCommand = enet_list_next(currentSendReliableCommand);
                 }
                 else
@@ -1760,7 +1761,7 @@ namespace ENet.NET
                                         (((1u << (ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) >> (ENET_PEER_RELIABLE_WINDOWS - reliableWindow)))))
                         {
                             windowWrap = 1;
-                            currentSendReliableCommand = enet_list_end(ref peer.outgoingSendReliableCommands);
+                            currentSendReliableCommand = enet_list_end(peer.outgoingSendReliableCommands);
                             continue;
                         }
                     }
@@ -1771,7 +1772,7 @@ namespace ENet.NET
 
                         if (peer.reliableDataInTransit + outgoingCommand.fragmentLength > Math.Max(windowSize, peer.mtu))
                         {
-                            currentSendReliableCommand = enet_list_end(ref peer.outgoingSendReliableCommands);
+                            currentSendReliableCommand = enet_list_end(peer.outgoingSendReliableCommands);
                             continue;
                         }
                     }
@@ -1811,12 +1812,12 @@ namespace ENet.NET
                         outgoingCommand.roundTripTimeout = (uint)(peer.roundTripTime + 4 * peer.roundTripTimeVariance);
                     }
 
-                    if (enet_list_empty(ref peer.sentReliableCommands))
+                    if (enet_list_empty(peer.sentReliableCommands))
                     {
                         peer.nextTimeout = host.serviceTime + outgoingCommand.roundTripTimeout;
                     }
 
-                    enet_list_insert(enet_list_end(ref peer.sentReliableCommands), enet_list_remove(outgoingCommand.outgoingCommandList));
+                    enet_list_insert(enet_list_end(peer.sentReliableCommands), enet_list_remove(outgoingCommand.outgoingCommandList));
 
                     outgoingCommand.sentTime = host.serviceTime;
 
@@ -1846,12 +1847,12 @@ namespace ENet.NET
                                 enet_list_remove(outgoingCommand.outgoingCommandList);
                                 enet_free(outgoingCommand);
 
-                                if (currentCommand == enet_list_end(ref peer.outgoingCommands))
+                                if (currentCommand == enet_list_end(peer.outgoingCommands))
                                 {
                                     break;
                                 }
 
-                                outgoingCommand = currentCommand.value;
+                                outgoingCommand = currentCommand.Value;
                                 if (outgoingCommand.reliableSequenceNumber != reliableSequenceNumber ||
                                     outgoingCommand.unreliableSequenceNumber != unreliableSequenceNumber)
                                 {
@@ -1869,7 +1870,7 @@ namespace ENet.NET
 
                     if (outgoingCommand.packet != null)
                     {
-                        enet_list_insert(enet_list_end(ref sentUnreliableCommands), outgoingCommand);
+                        enet_list_insert(enet_list_end(sentUnreliableCommands), outgoingCommand);
                     }
                 }
 
@@ -1907,7 +1908,7 @@ namespace ENet.NET
 
             if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER &&
                 !enet_peer_has_outgoing_commands(peer) &&
-                enet_list_empty(ref sentUnreliableCommands))
+                enet_list_empty(sentUnreliableCommands))
             {
                 enet_peer_disconnect(peer, peer.eventData);
             }
@@ -1922,11 +1923,11 @@ namespace ENet.NET
             ref ENetProtocolHeader header = ref headerData.header;
             int sentLength = 0;
             long shouldCompress = 0;
-            ENetList<ENetOutgoingCommand> sentUnreliableCommands = new ENetList<ENetOutgoingCommand>();
+            LinkedList<ENetOutgoingCommand> sentUnreliableCommands = new LinkedList<ENetOutgoingCommand>();
             int sendPass = 0, continueSending = 0;
             ENetPeer currentPeer = null;
 
-            enet_list_clear(ref sentUnreliableCommands);
+            enet_list_clear(sentUnreliableCommands);
 
             for (; sendPass <= continueSending; ++sendPass)
             {
@@ -1945,13 +1946,13 @@ namespace ENet.NET
                     host.bufferCount = 1;
                     host.packetSize = Marshal.SizeOf<ENetProtocolHeader>();
 
-                    if (!enet_list_empty(ref currentPeer.acknowledgements))
+                    if (!enet_list_empty(currentPeer.acknowledgements))
                     {
                         enet_protocol_send_acknowledgements(host, currentPeer);
                     }
 
                     if (checkForTimeouts != 0 &&
-                        !enet_list_empty(ref currentPeer.sentReliableCommands) &&
+                        !enet_list_empty(currentPeer.sentReliableCommands) &&
                         ENET_TIME_GREATER_EQUAL(host.serviceTime, currentPeer.nextTimeout) &&
                         enet_protocol_check_timeouts(host, currentPeer, @event) == 1
                        )
@@ -1966,16 +1967,16 @@ namespace ENet.NET
                         }
                     }
 
-                    if (((enet_list_empty(ref currentPeer.outgoingCommands) &&
-                          enet_list_empty(ref currentPeer.outgoingSendReliableCommands)) ||
-                         0 != enet_protocol_check_outgoing_commands(host, currentPeer, ref sentUnreliableCommands)) &&
-                        enet_list_empty(ref currentPeer.sentReliableCommands) &&
+                    if (((enet_list_empty(currentPeer.outgoingCommands) &&
+                          enet_list_empty(currentPeer.outgoingSendReliableCommands)) ||
+                         0 != enet_protocol_check_outgoing_commands(host, currentPeer, sentUnreliableCommands)) &&
+                        enet_list_empty(currentPeer.sentReliableCommands) &&
                         ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.lastReceiveTime) >= currentPeer.pingInterval &&
                         currentPeer.mtu - host.packetSize >= Marshal.SizeOf<ENetProtocolPing>()
                        )
                     {
                         enet_peer_ping(currentPeer);
-                        enet_protocol_check_outgoing_commands(host, currentPeer, ref sentUnreliableCommands);
+                        enet_protocol_check_outgoing_commands(host, currentPeer, sentUnreliableCommands);
                     }
 
                     if (host.commandCount == 0)
@@ -1995,9 +1996,9 @@ namespace ENet.NET
                         float packetLoss1 = currentPeer.packetLoss / (float)ENET_PEER_PACKET_LOSS_SCALE;
                         float packetLoss2 = currentPeer.packetLossVariance / (float)ENET_PEER_PACKET_LOSS_SCALE;
                         float throttle = currentPeer.packetThrottle / (float)ENET_PEER_PACKET_THROTTLE_SCALE;
-                        int outgoing = enet_list_size(ref currentPeer.outgoingCommands);
-                        int incoming1 = currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingReliableCommands) : 0;
-                        int incoming2 = currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingUnreliableCommands) : 0;
+                        int outgoing = enet_list_size(currentPeer.outgoingCommands);
+                        int incoming1 = currentPeer.channels != null ? enet_list_size(currentPeer.channels[0].incomingReliableCommands) : 0;
+                        int incoming2 = currentPeer.channels != null ? enet_list_size(currentPeer.channels[0].incomingUnreliableCommands) : 0;
                         print($"peer {currentPeer.incomingPeerID}: {packetLoss1}+-{packetLoss2} packet loss, {currentPeer.roundTripTime}+-{currentPeer.roundTripTimeVariance} ms round trip time, {throttle} throttle, {outgoing} outgoing, {incoming1}/{incoming2} incoming");
 #endif
 
@@ -2084,7 +2085,7 @@ namespace ENet.NET
 
                     currentPeer.lastSendTime = host.serviceTime;
                     sentLength = enet_socket_send(host.socket, ref currentPeer.address, host.buffers, host.bufferCount);
-                    enet_protocol_remove_sent_unreliable_commands(currentPeer, ref sentUnreliableCommands);
+                    enet_protocol_remove_sent_unreliable_commands(currentPeer, sentUnreliableCommands);
 
                     if (sentLength < 0)
                     {

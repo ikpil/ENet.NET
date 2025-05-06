@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 
@@ -33,7 +34,7 @@ namespace ENet.NET
         public long peerCount; /* number of peers allocated for this host */
         public long channelLimit; /* maximum number of channels allowed for connected peers */
         public long serviceTime;
-        public ENetList<ENetPeer> dispatchQueue;
+        public LinkedList<ENetPeer> dispatchQueue = new LinkedList<ENetPeer>();
         public uint totalQueued;
         public long packetSize;
         public ushort headerFlags;

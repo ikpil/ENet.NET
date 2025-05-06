@@ -1,4 +1,6 @@
-﻿namespace ENet.NET
+﻿using System.Collections.Generic;
+
+namespace ENet.NET
 {
     public class ENetChannel
     {
@@ -8,7 +10,7 @@
         public ushort[] reliableWindows = new ushort[ENets.ENET_PEER_RELIABLE_WINDOWS];
         public ushort incomingReliableSequenceNumber;
         public ushort incomingUnreliableSequenceNumber;
-        public ENetList<ENetIncomingCommand> incomingReliableCommands;
-        public ENetList<ENetIncomingCommand> incomingUnreliableCommands;
+        public LinkedList<ENetIncomingCommand> incomingReliableCommands;
+        public LinkedList<ENetIncomingCommand> incomingUnreliableCommands;
     }
 }

@@ -1,8 +1,10 @@
-﻿namespace ENet.NET
+﻿using System.Collections.Generic;
+
+namespace ENet.NET
 {
     public class ENetIncomingCommand
     {
-        public ENetListNode<ENetIncomingCommand> incomingCommandList;
+        public LinkedListNode<ENetIncomingCommand> incomingCommandList;
         public ushort reliableSequenceNumber;
         public ushort unreliableSequenceNumber;
         public ENetProtocol command;

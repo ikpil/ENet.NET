@@ -1,4 +1,6 @@
-﻿namespace ENet.NET
+﻿using System.Collections.Generic;
+
+namespace ENet.NET
 {
     /**
      * An ENet peer which data packets may be sent or received from.
@@ -7,7 +9,7 @@
      */
     public class ENetPeer
     {
-        public ENetListNode<ENetPeer> dispatchList;
+        public LinkedListNode<ENetPeer> dispatchList;
 
         public ENetHost host;
         public ushort outgoingPeerID;
@@ -62,11 +64,11 @@
         public long windowSize;
         public long reliableDataInTransit;
         public ushort outgoingReliableSequenceNumber;
-        public ENetList<ENetAcknowledgement> acknowledgements;
-        public ENetList<ENetOutgoingCommand> sentReliableCommands;
-        public ENetList<ENetOutgoingCommand> outgoingCommands;
-        public ENetList<ENetOutgoingCommand> outgoingSendReliableCommands;
-        public ENetList<ENetIncomingCommand> dispatchedCommands;
+        public LinkedList<ENetAcknowledgement> acknowledgements = new LinkedList<ENetAcknowledgement>();
+        public LinkedList<ENetOutgoingCommand> sentReliableCommands = new LinkedList<ENetOutgoingCommand>();
+        public LinkedList<ENetOutgoingCommand> outgoingCommands = new LinkedList<ENetOutgoingCommand>();
+        public LinkedList<ENetOutgoingCommand> outgoingSendReliableCommands = new LinkedList<ENetOutgoingCommand>();
+        public LinkedList<ENetIncomingCommand> dispatchedCommands = new LinkedList<ENetIncomingCommand>();
         public ushort flags;
         public ushort reserved;
         public ushort incomingUnsequencedGroup;

@@ -24,8 +24,23 @@ public static class Program
     // program will make N iterations, and then exit
     static int counter = 1000;
 
-
     public static int Main(string[] args)
+    {
+        int ret = 0;
+        try
+        {
+            ret = Run();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            ret = -1;
+        }
+
+        return ret;
+    }
+
+    public static int Run()
     {
         if (enet_initialize() != 0)
         {
