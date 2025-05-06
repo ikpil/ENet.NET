@@ -149,6 +149,8 @@ namespace ENet.NET
         public static ENetPacket enet_malloc_packet(long bufferSize)
         {
             // TODO : check ikpil
+            var packet = new ENetPacket();
+            packet.dataLength = bufferSize;
             object memory = callbacks.malloc(bufferSize);
 
             if (memory == null)
@@ -156,7 +158,7 @@ namespace ENet.NET
                 callbacks.no_memory();
             }
 
-            return (ENetPacket)memory;
+            return packet;
         }
 
         public static T enet_malloc<T>()

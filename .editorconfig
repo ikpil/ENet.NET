@@ -15,6 +15,10 @@ indent_size = 2
 [*.cs]
 indent_size = 4
 dotnet_sort_system_directives_first = true
+csharp_new_line_between_attributes = true
+csharp_new_line_before_members_with_attributes = true
+csharp_place_attributes_on_separate_line = true
+
 
 # Wrapping preferences
 csharp_preserve_single_line_statements = false
@@ -24,3 +28,8 @@ csharp_preserve_single_line_blocks = true
 resharper_csharp_wrap_lines = false
 resharper_csharp_space_before_trailing_comment = true
 resharper_csharp_space_after_operator_keyword = true
+resharper_wrap_attributes = true
+resharper_place_attribute_on_same_line = false
+resharper_line_break_after_attribute = true
+resharper_wrap_lines = true
+resharper_max_line_length = 1000000

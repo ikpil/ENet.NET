@@ -13,7 +13,7 @@ namespace ENet.NET
 
         public delegate void NoMemoryDelegate();
 
-        public delegate ENetPacket PacketCreateDelegate(object data, long dataLength, uint flags);
+        public delegate ENetPacket PacketCreateDelegate(Span<byte> data, long dataLength, uint flags);
 
         public delegate void PacketDestroyDelegate(ENetPacket packet);
 

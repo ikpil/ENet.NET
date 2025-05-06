@@ -40,11 +40,12 @@ namespace ENet.NET
                 }
 
                 // todo : @ikpil check
-                packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
+                //packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
 
                 if (data != null)
                 {
-                    memcpy(packet.data, data, dataLength);
+                    // todo : check
+                    //memcpy(packet.data, data, dataLength);
                 }
             }
 
@@ -65,8 +66,6 @@ namespace ENet.NET
         */
         public static ENetPacket enet_packet_resize(ENetPacket packet, long dataLength)
         {
-            ENetPacket newPacket = null;
-
             if (dataLength <= packet.dataLength || 0 != (packet.flags & ENetPacketFlag.ENET_PACKET_FLAG_NO_ALLOCATE))
             {
                 packet.dataLength = dataLength;
@@ -74,12 +73,14 @@ namespace ENet.NET
                 return packet;
             }
 
-            newPacket = enet_malloc_packet(dataLength);
+            ENetPacket newPacket = enet_malloc_packet(dataLength);
             if (newPacket == null)
                 return null;
 
-            memcpy(newPacket, packet, Marshal.SizeOf<ENetPacket>() + packet.dataLength);
-            newPacket.data = (byte*)newPacket + Marshal.SizeOf<ENetPacket>();
+            // todo : ikpil
+            //memcpy(newPacket, packet, Marshal.SizeOf<ENetPacket>() + packet.dataLength);
+            newPacket.CopyFrom(packet);
+            //newPacket.data = (byte*)newPacket + Marshal.SizeOf<ENetPacket>();
             newPacket.dataLength = dataLength;
             enet_free(packet);
 
@@ -107,11 +108,13 @@ namespace ENet.NET
                     return null;
                 }
 
-                packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
+                // todo : check
+                //packet.data = (byte*)packet + Marshal.SizeOf<ENetPacket>();
 
                 if (data != null)
                 {
-                    memcpy(packet.data + dataOffset, data, dataLength);
+                    // todo : check
+                    //memcpy(packet.data + dataOffset, data, dataLength);
                 }
             }
 

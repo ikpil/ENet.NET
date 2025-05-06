@@ -11,12 +11,11 @@ using static ENet.NET.ENetAddresses;
 
 namespace ENet.NET
 {
-// =======================================================================//
-// !
-// ! Host
-// !
-// =======================================================================//
-
+    // =======================================================================//
+    // !
+    // ! Host
+    // !
+    // =======================================================================//
     public static class ENetHosts
     {
         /** Creates a host for communicating to peers.
@@ -672,7 +671,7 @@ namespace ENet.NET
 
                     case -1:
 #if DEBUG
-                    perror("Error dispatching incoming packets");
+                        perror("Error dispatching incoming packets");
 #endif
 
                         return -1;
@@ -699,7 +698,7 @@ namespace ENet.NET
 
                     case -1:
 #if DEBUG
-                    perror("Error sending outgoing packets");
+                        perror("Error sending outgoing packets");
 #endif
 
                         return -1;
@@ -715,7 +714,7 @@ namespace ENet.NET
 
                     case -1:
 #if DEBUG
-                    perror("Error receiving incoming packets");
+                        perror("Error receiving incoming packets");
 #endif
 
                         return -1;
@@ -731,7 +730,7 @@ namespace ENet.NET
 
                     case -1:
 #if DEBUG
-                    perror("Error sending outgoing packets");
+                        perror("Error sending outgoing packets");
 #endif
 
                         return -1;
@@ -749,7 +748,7 @@ namespace ENet.NET
 
                         case -1:
 #if DEBUG
-                        perror("Error dispatching incoming packets");
+                            perror("Error dispatching incoming packets");
 #endif
 
                             return -1;

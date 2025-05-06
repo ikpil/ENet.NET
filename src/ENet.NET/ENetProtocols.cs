@@ -451,20 +451,22 @@ namespace ENet.NET
         } /* enet_protocol_handle_connect */
 
         public static int enet_protocol_handle_send_reliable(ENetHost host, ENetPeer peer, ref ENetProtocol command, ref ArraySegment<byte> currentData) {
-            long dataLength;
+            int dataLength;
 
             if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER)) {
                 return -1;
             }
 
             dataLength    = ENET_NET_TO_HOST_16(command.sendReliable.dataLength);
-            *currentData += dataLength;
+            currentData = currentData.Slice(0, dataLength);
 
-            if (dataLength > host.maximumPacketSize || *currentData < host.receivedData || *currentData > &host.receivedData[host.receivedDataLength]) {
+            if (dataLength > host.maximumPacketSize || currentData.Offset < host.receivedData.Offset || currentData.Offset > host.receivedDataLength) {
                 return -1;
             }
 
-            if (enet_peer_queue_incoming_command(peer, command, (const byte *) command + Marshal.SizeOf<ENetProtocolSendReliable>(), dataLength, ENetPacketFlag.ENET_PACKET_FLAG_RELIABLE, 0) == null) {
+            // todo : check
+            //(const byte *) command + Marshal.SizeOf<ENetProtocolSendReliable>()
+            if (enet_peer_queue_incoming_command(peer, ref command, command.bytes.AsSpan().Slice(Marshal.SizeOf<ENetProtocolSendReliable>()), dataLength, ENetPacketFlag.ENET_PACKET_FLAG_RELIABLE, 0) == null) {
                 return -1;
             }
 
@@ -473,15 +475,14 @@ namespace ENet.NET
 
         public static int enet_protocol_handle_send_unsequenced(ENetHost host, ENetPeer peer, ref ENetProtocol command, ref ArraySegment<byte> currentData) {
             uint unsequencedGroup, index;
-            long dataLength;
 
             if (command.header.channelID >= peer.channelCount || (peer.state != ENetPeerState.ENET_PEER_STATE_CONNECTED && peer.state != ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER)) {
                 return -1;
             }
 
-            dataLength    = ENET_NET_TO_HOST_16(command.sendUnsequenced.dataLength);
-            *currentData += dataLength;
-            if (dataLength > host.maximumPacketSize || *currentData < host.receivedData || *currentData > &host.receivedData[host.receivedDataLength]) {
+            int dataLength    = ENET_NET_TO_HOST_16(command.sendUnsequenced.dataLength);
+            currentData = currentData.Slice(0, dataLength);
+            if (dataLength > host.maximumPacketSize || currentData.Offset < host.receivedData.Offset || currentData.Offset > host.receivedDataLength) {
                 return -1;
             }
 
@@ -506,7 +507,9 @@ namespace ENet.NET
                 return 0;
             }
 
-            if (enet_peer_queue_incoming_command(peer, command, (const byte *) command + Marshal.SizeOf<ENetProtocolSendUnsequenced>(), dataLength, ENetPacketFlag.ENET_PACKET_FLAG_UNSEQUENCED,0) == null) {
+            // todo : check
+            //(const byte *) command + Marshal.SizeOf<ENetProtocolSendUnsequenced>();
+            if (enet_peer_queue_incoming_command(peer, ref command, command.bytes.AsSpan().Slice(Marshal.SizeOf<ENetProtocolSendUnsequenced>()), dataLength, ENetPacketFlag.ENET_PACKET_FLAG_UNSEQUENCED,0) == null) {
                 return -1;
             }
 

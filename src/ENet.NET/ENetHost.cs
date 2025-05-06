@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.Sockets;
 
 namespace ENet.NET
@@ -50,7 +51,7 @@ namespace ENet.NET
         };
 
         public ENetAddress receivedAddress;
-        public byte[] receivedData;
+        public ArraySegment<byte> receivedData;
         public long receivedDataLength;
         public long totalSentData; /* total data sent, user should reset to 0 as needed to prevent overflow */
         public long totalSentPackets; /* total UDP packets sent, user should reset to 0 as needed to prevent overflow */

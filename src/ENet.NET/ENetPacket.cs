@@ -1,4 +1,6 @@
-﻿namespace ENet.NET
+﻿using System.Diagnostics;
+
+namespace ENet.NET
 {
     /**
      * ENet packet structure.
@@ -24,5 +26,11 @@
         public long dataLength; /* length of data */
         public ENetPacketFreeCallback freeCallback; /* function to be called when the packet is no longer in use */
         public object userData; /* application private data, may be freely modified */
+
+        public void CopyFrom(ENetPacket packet)
+        {
+            // ..
+            Debug.Assert(false);
+        }
     }
 }

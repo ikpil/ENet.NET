@@ -53,7 +53,7 @@ namespace ENet.NET
 
                 address.host = endPoint.Address;
                 address.port = (ushort)endPoint.Port;
-                
+
                 if (endPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     address.sin6_scope_id = (uint)endPoint.Address.ScopeId;
@@ -214,7 +214,7 @@ namespace ENet.NET
                     return null;
 
                 Socket acceptedSocket = socket.Accept();
-                
+
                 if (address != null)
                 {
                     var remoteEndPoint = acceptedSocket.RemoteEndPoint as IPEndPoint;
@@ -222,7 +222,7 @@ namespace ENet.NET
                     {
                         address.host = remoteEndPoint.Address;
                         address.port = (ushort)remoteEndPoint.Port;
-                        
+
                         if (remoteEndPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
                         {
                             address.sin6_scope_id = (uint)remoteEndPoint.Address.ScopeId;
@@ -286,6 +286,11 @@ namespace ENet.NET
             }
         }
 
+        public static int enet_socket_send(Socket socket, ENetAddress address, ENetBuffer buffers)
+        {
+            return -1;
+        }
+        
         public static int enet_socket_send(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
             try
@@ -300,19 +305,13 @@ namespace ENet.NET
                     if (buffer.data == null || buffer.dataLength <= 0)
                         continue;
 
-                    bufferList.Add(new ArraySegment<byte>(buffer.data, 0, (int)buffer.dataLength));
+                    bufferList.Add(buffer.data.Slice(0, (int)buffer.dataLength));
                 }
 
                 if (bufferList.Count == 0)
                     return 0;
 
-                IPEndPoint endPoint = null;
-                if (address != null)
-                {
-                    endPoint = new IPEndPoint(address.host, address.port);
-                }
-
-                int sent = socket.Send(bufferList, bufferList.Count);
+                int sent = socket.Send(bufferList);
                 return sent;
             }
             catch (SocketException ex)
@@ -323,107 +322,130 @@ namespace ENet.NET
             }
         }
 
-        public static int enet_socket_receive(Socket socket, ENetAddress address, ref ENetBuffer buffers, long bufferCount)
+        public static int enet_socket_receive(Socket socket, ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
         {
-            INT sinLength = sizeof(struct sockaddr_in6);
-            DWORD flags = 0, recvLength = 0;
-            struct sockaddr_in6 sin = { 0 };
+            try
+            {
+                if (socket == null)
+                    return -1;
 
-            if (WSARecvFrom(socket,
-                    (LPWSABUF)buffers,
-                    (DWORD)bufferCount,
-                    &recvLength,
-                    &flags,
-                    address != null ? (struct sockaddr *) &sin : null,
-            address != null ? &sinLength : null,
-            null,
-            null) == SOCKET_ERROR
-                ) {
-                switch (WSAGetLastError())
+                var bufferList = new List<ArraySegment<byte>>();
+                for (int i = 0; i < bufferCount; i++)
                 {
-                    case WSAEWOULDBLOCK:
-                    case WSAECONNRESET:
+                    var buffer = buffers[i];
+                    if (buffer.data == null || buffer.dataLength <= 0)
+                        continue;
+
+                    bufferList.Add(buffer.data.Slice(0, (int)buffer.dataLength));
+                }
+
+                if (bufferList.Count == 0)
+                    return 0;
+
+                EndPoint remoteEP = null;
+                if (address != null)
+                {
+                    remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
+                }
+
+                int received = socket.Receive(bufferList);
+
+                if (address != null && remoteEP is IPEndPoint ipEndPoint)
+                {
+                    address.host = ipEndPoint.Address;
+                    address.port = (ushort)ipEndPoint.Port;
+                    
+                    if (ipEndPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                    {
+                        address.sin6_scope_id = (uint)ipEndPoint.Address.ScopeId;
+                    }
+                }
+
+                return received;
+            }
+            catch (SocketException ex)
+            {
+                switch (ex.SocketErrorCode)
+                {
+                    case SocketError.WouldBlock:
+                    case SocketError.ConnectionReset:
                         return 0;
-                    case WSAEINTR:
-                    case WSAEMSGSIZE:
+                    case SocketError.Interrupted:
+                    case SocketError.MessageSize:
                         return -2;
                     default:
                         return -1;
                 }
             }
+        }
 
-            if (flags & MSG_PARTIAL)
-            {
-                return -2;
-            }
-
-            if (address != null)
-            {
-                address.host = sin.sin6_addr;
-                address.port = ENET_NET_TO_HOST_16(sin.sin6_port);
-                address.sin6_scope_id = sin.sin6_scope_id;
-            }
-
-            return (int)recvLength;
-        } /* enet_socket_receive */
-
-        public static int enet_socketset_select(Socket maxSocket, ENetSocketSet* readSet, ENetSocketSet* writeSet, uint timeout)
+        public static int enet_socketset_select(Socket maxSocket, List<Socket> readSet, List<Socket> writeSet, int timeout)
         {
-            struct timeval timeVal;
+            try
+            {
+                if (maxSocket == null)
+                    return -1;
 
-            timeVal.tv_sec = timeout / 1000;
-            timeVal.tv_usec = (timeout % 1000) * 1000;
+                // 타임아웃 설정
+                int timeoutMs = 0 >= timeout ? -1 : timeout * 1000;
 
-            return select(maxSocket + 1, readSet, writeSet, null, &timeVal);
+                // Select 호출
+                Socket.Select(readSet, writeSet, null, timeoutMs);
+
+                return readSet.Count + writeSet.Count;
+            }
+            catch (SocketException)
+            {
+                return -1;
+            }
         }
 
         public static int enet_socket_wait(Socket socket, ref uint condition, long timeout)
         {
-            fd_set readSet, writeSet;
-            struct timeval timeVal;
-            int selectCount;
-
-            timeVal.tv_sec = timeout / 1000;
-            timeVal.tv_usec = (timeout % 1000) * 1000;
-
-            FD_ZERO(&readSet);
-            FD_ZERO(&writeSet);
-
-            if (*condition & ENetSocketWait.ENET_SOCKET_WAIT_SEND)
+            try
             {
-                FD_SET(socket, &writeSet);
+                if (socket == null)
+                    return -1;
+
+                var readList = new List<Socket>();
+                var writeList = new List<Socket>();
+
+                // 조건에 따라 소켓 추가
+                if ((condition & ENetSocketWait.ENET_SOCKET_WAIT_SEND) != 0)
+                {
+                    writeList.Add(socket);
+                }
+
+                if ((condition & ENetSocketWait.ENET_SOCKET_WAIT_RECEIVE) != 0)
+                {
+                    readList.Add(socket);
+                }
+
+                // 타임아웃 설정 (밀리초 단위)
+                int timeoutMs = timeout <= 0 ? -1 : (int)timeout;
+
+                // Select 호출
+                Socket.Select(readList, writeList, null, timeoutMs);
+
+                // 결과 업데이트
+                condition = ENetSocketWait.ENET_SOCKET_WAIT_NONE;
+
+                if (readList.Contains(socket))
+                {
+                    condition |= ENetSocketWait.ENET_SOCKET_WAIT_RECEIVE;
+                }
+
+                if (writeList.Contains(socket))
+                {
+                    condition |= ENetSocketWait.ENET_SOCKET_WAIT_SEND;
+                }
+
+                return 0;
             }
-
-            if (*condition & ENetSocketWait.ENET_SOCKET_WAIT_RECEIVE)
-            {
-                FD_SET(socket, &readSet);
-            }
-
-            selectCount = select(socket + 1, &readSet, &writeSet, null, &timeVal);
-
-            if (selectCount < 0)
+            catch (SocketException)
             {
                 return -1;
             }
-
-            *condition = ENetSocketWait.ENET_SOCKET_WAIT_NONE;
-
-            if (selectCount == 0)
-            {
-                return 0;
-            }
-
-            if (FD_ISSET(socket, &writeSet))
-            {
-                *condition |= ENetSocketWait.ENET_SOCKET_WAIT_SEND;
-            }
-
-            if (FD_ISSET(socket, &readSet))
-            {
-                *condition |= ENetSocketWait.ENET_SOCKET_WAIT_RECEIVE;
-            }
-
-            return 0;
-        } /* enet_socket_wait */
+        }
     }
 }

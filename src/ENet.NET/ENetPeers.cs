@@ -992,7 +992,7 @@ namespace ENet.NET
 
         private static ENetIncomingCommand dummyCommand;
 
-        public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, byte[] data, long dataLength, uint flags, uint fragmentCount)
+        public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, Span<byte> data, long dataLength, uint flags, uint fragmentCount)
         {
             ENetChannel channel = peer.channels[command.header.channelID];
             int unreliableSequenceNumber = 0, reliableSequenceNumber = 0;
