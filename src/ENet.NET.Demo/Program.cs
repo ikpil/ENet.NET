@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ENet.NET.Copyright;
+namespace ENet.NET.Demo;
 
 public static class Program
 {
