@@ -78,14 +78,19 @@ namespace ENet.NET
         public const int ENET_HOST_DEFAULT_MAXIMUM_PACKET_SIZE = 32 * 1024 * 1024;
         public const int ENET_HOST_DEFAULT_MAXIMUM_WAITING_DATA = 32 * 1024 * 1024;
 
+        public static string timestamp_str()
+        {
+            return $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}";
+        }
+
         public static void perror(string message, [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0, [CallerMemberName] string memberName = "")
         {
-            Console.Error.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [ERR] {message} {memberName}() {fileName}:{lineNumber}");
+            Console.Error.WriteLine($"{timestamp_str()} [ERR] {message} {memberName}() {fileName}:{lineNumber}");
         }
 
         public static void print(string message, [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0, [CallerMemberName] string memberName = "")
         {
-            Console.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [INF] {message}");
+            Console.WriteLine($"{timestamp_str()} [INF] {message}");
         }
 
         public static void enet_assert(bool condition, string message = "", [CallerFilePath] string fileName = "", [CallerLineNumber] int lineNumber = 0, [CallerMemberName] string memberName = "")
@@ -93,7 +98,7 @@ namespace ENet.NET
             if (condition)
                 return;
 
-            throw new InvalidOperationException($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [THW] {message} {memberName}() {fileName}:{lineNumber}");
+            throw new InvalidOperationException($"{timestamp_str()} [THW] {message} {memberName}() {fileName}:{lineNumber}");
         }
 
         public static void ENET_UNUSED<T>(T x)
