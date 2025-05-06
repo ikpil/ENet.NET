@@ -20,54 +20,16 @@ public static class Program
     private const int MAX_CLIENTS = 5000;
     private static ulong g_counter = 0;
     private static ulong g_disconnected = 0;
-    
+
     // program will make N iterations, and then exit
     static int counter = 1000;
 
-    private static void host_server(ENetHost server)
-    {
-        ENetEvent @event = new ENetEvent();
-        while (enet_host_service(server, @event, 2) > 0)
-        {
-            switch (@event.type)
-            {
-                case ENetEventType.ENET_EVENT_TYPE_CONNECT:
-                    printf("A new peer with ID %u connected from ::1:%u.\n", @event.peer.incomingPeerID, @event.peer.address.port);
-                    /* Store any relevant client information here. */
-                    @event.peer.data = g_counter++;
-                    break;
-                case ENetEventType.ENET_EVENT_TYPE_RECEIVE:
-                    //printf("A packet of length %zu containing %s was received from %s on channel %u.\n", @event.packet.dataLength, @event.packet.data, (char*)@event.peer.data, @event.channelID);
-
-                    /* Clean up the packet now that we're done using it. */
-                    enet_packet_destroy(@event.packet);
-                    break;
-
-                case ENetEventType.ENET_EVENT_TYPE_DISCONNECT:
-                    printf("Peer with ID %u disconnected.\n", @event.peer.incomingPeerID);
-                    g_disconnected++;
-                    /* Reset the peer's client information. */
-                    @event.peer.data = null;
-                    break;
-
-                case ENetEventType.ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
-                    printf("Client %u timeout.\n", @event.peer.incomingPeerID);
-                    g_disconnected++;
-                    /* Reset the peer's client information. */
-                    @event.peer.data = null;
-                    break;
-
-                case ENetEventType.ENET_EVENT_TYPE_NONE:
-                    break;
-            }
-        }
-    }
 
     public static int Main(string[] args)
     {
         if (enet_initialize() != 0)
         {
-            printf("An error occurred while initializing ENet.\n");
+            print($"An error occurred while initializing ENet.");
             return 1;
         }
 
@@ -80,15 +42,15 @@ public static class Program
 
 
         /* create a server */
-        printf("starting server...\n");
+        print($"starting server...");
         ENetHost server = enet_host_create(address, MAX_CLIENTS, 2, 0, 0);
         if (server == null)
         {
-            printf("An error occurred while trying to create an ENet server host.\n");
+            print($"An error occurred while trying to create an ENet server host.");
             return 1;
         }
 
-        printf("starting clients...\n");
+        print($"starting clients...");
         for (i = 0; i < MAX_CLIENTS; ++i)
         {
             enet_address_set_host(out address, "127.0.0.1");
@@ -96,12 +58,12 @@ public static class Program
             clients[i].peer = enet_host_connect(clients[i].host, address, 2, 0);
             if (clients[i].peer == null)
             {
-                printf("coundlnt connect\n");
+                print($"coundlnt connect");
                 return 1;
             }
         }
 
-        printf("running server...\n");
+        print($"running server...");
 
 
         do
@@ -117,7 +79,7 @@ public static class Program
             counter--;
         } while (counter > 0);
 
-        printf("stopping clients...\n");
+        print($"stopping clients...");
 
         for (i = 0; i < MAX_CLIENTS; ++i)
         {
@@ -137,5 +99,44 @@ public static class Program
         enet_host_destroy(server);
         enet_deinitialize();
         return 0;
+    }
+
+    private static void host_server(ENetHost server)
+    {
+        ENetEvent @event = new ENetEvent();
+        while (enet_host_service(server, @event, 2) > 0)
+        {
+            switch (@event.type)
+            {
+                case ENetEventType.ENET_EVENT_TYPE_CONNECT:
+                    print($"A new peer with ID {@event.peer.incomingPeerID} connected from ::1:{@event.peer.address.port}.");
+                    /* Store any relevant client information here. */
+                    @event.peer.data = g_counter++;
+                    break;
+                case ENetEventType.ENET_EVENT_TYPE_RECEIVE:
+                    print($"A packet of length {@event.packet.dataLength} containing {@event.packet.data} was received from {@event.peer.data} on channel {@event.channelID}.");
+
+                    /* Clean up the packet now that we're done using it. */
+                    enet_packet_destroy(@event.packet);
+                    break;
+
+                case ENetEventType.ENET_EVENT_TYPE_DISCONNECT:
+                    print($"Peer with ID {@event.peer.incomingPeerID} disconnected.");
+                    g_disconnected++;
+                    /* Reset the peer's client information. */
+                    @event.peer.data = null;
+                    break;
+
+                case ENetEventType.ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
+                    print($"Client {@event.peer.incomingPeerID} timeout.");
+                    g_disconnected++;
+                    /* Reset the peer's client information. */
+                    @event.peer.data = null;
+                    break;
+
+                case ENetEventType.ENET_EVENT_TYPE_NONE:
+                    break;
+            }
+        }
     }
 }

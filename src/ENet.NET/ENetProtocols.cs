@@ -1993,15 +1993,13 @@ namespace ENet.NET
                         long packetLoss = currentPeer.packetsLost * ENET_PEER_PACKET_LOSS_SCALE / currentPeer.packetsSent;
 
 #if DEBUG
-                        printf(
-                            "peer %u: %f%%+-%f%% packet loss, %u+-%u ms round trip time, %f%% throttle, %llu outgoing, %llu/%llu incoming\n", currentPeer.incomingPeerID,
-                            currentPeer.packetLoss / (float)ENET_PEER_PACKET_LOSS_SCALE,
-                            currentPeer.packetLossVariance / (float)ENET_PEER_PACKET_LOSS_SCALE, currentPeer.roundTripTime, currentPeer.roundTripTimeVariance,
-                            currentPeer.packetThrottle / (float)ENET_PEER_PACKET_THROTTLE_SCALE,
-                            enet_list_size(ref currentPeer.outgoingCommands),
-                            currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingReliableCommands) : 0,
-                            currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingUnreliableCommands) : 0
-                        );
+                        float packetLoss1 = currentPeer.packetLoss / (float)ENET_PEER_PACKET_LOSS_SCALE;
+                        float packetLoss2 = currentPeer.packetLossVariance / (float)ENET_PEER_PACKET_LOSS_SCALE;
+                        float throttle = currentPeer.packetThrottle / (float)ENET_PEER_PACKET_THROTTLE_SCALE;
+                        int outgoing = enet_list_size(ref currentPeer.outgoingCommands);
+                        int incoming1 = currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingReliableCommands) : 0;
+                        int incoming2 = currentPeer.channels != null ? enet_list_size(ref currentPeer.channels[0].incomingUnreliableCommands) : 0;
+                        print($"peer {currentPeer.incomingPeerID}: {packetLoss1}+-{packetLoss2} packet loss, {currentPeer.roundTripTime}+-{currentPeer.roundTripTimeVariance} ms round trip time, {throttle} throttle, {outgoing} outgoing, {incoming1}/{incoming2} incoming");
 #endif
 
                         currentPeer.packetLossVariance = (currentPeer.packetLossVariance * 3 + ENET_DIFFERENCE(packetLoss, currentPeer.packetLoss)) / 4;
@@ -2035,7 +2033,7 @@ namespace ENet.NET
                             host.headerFlags |= ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_COMPRESSED;
                             shouldCompress = compressedSize;
 #if DEBUG
-                            printf("peer %u: compressed %u.%u (%u%%)\n", currentPeer.incomingPeerID, originalSize, compressedSize, (compressedSize * 100) / originalSize);
+                            print($"peer {currentPeer.incomingPeerID}: compressed {originalSize}.{compressedSize} ({(compressedSize * 100) / originalSize})");
 #endif
                         }
                     }

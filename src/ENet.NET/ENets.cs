@@ -73,7 +73,7 @@ namespace ENet.NET
             Console.Error.WriteLine(message);
         }
 
-        public static void printf(string message, params object[] asdf)
+        public static void print(string message)
         {
             Console.WriteLine(message);
         }
