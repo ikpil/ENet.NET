@@ -18,6 +18,11 @@ namespace ENet.NET
         public ushort port;
         public long sin6_scope_id;
 
+        public ENetAddress()
+        {
+            
+        }
+
         public ENetAddress(IPAddress host, ushort port, long sin6_scope_id)
         {
             this.host = host;

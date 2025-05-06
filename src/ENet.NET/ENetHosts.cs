@@ -43,25 +43,18 @@ namespace ENet.NET
                 return null;
             }
 
-            host = enet_malloc<ENetHost>();
-            if (host == null)
-            {
-                return null;
-            }
-            // todo : @ikpil check
-            enet_assert(false);
-            //memset(host, 0, sizeof(ENetHost));
-
-            host.peers = enet_malloc<ENetPeer>(peerCount);
+            host = new ENetHost();
+            host.peers = new ENetPeer[peerCount];
             if (host.peers == null)
             {
                 enet_free(host);
                 return null;
             }
 
-            // todo : @ikpil check
-            enet_assert(false);
-            //memset(host.peers, 0, peerCount * sizeof(ENetPeer));
+            for (int i = 0; i < host.peers.Length; ++i)
+            {
+                host.peers[i] = new ENetPeer();
+            }
 
             host.socket = enet_socket_create(ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM);
             if (host.socket != null)
