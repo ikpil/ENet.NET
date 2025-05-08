@@ -10,7 +10,7 @@ namespace ENet.NET
         public ushort[] reliableWindows = new ushort[ENets.ENET_PEER_RELIABLE_WINDOWS];
         public ushort incomingReliableSequenceNumber;
         public ushort incomingUnreliableSequenceNumber;
-        public LinkedList<ENetIncomingCommand> incomingReliableCommands;
-        public LinkedList<ENetIncomingCommand> incomingUnreliableCommands;
+        public LinkedList<ENetIncomingCommand> incomingReliableCommands = new LinkedList<ENetIncomingCommand>();
+        public LinkedList<ENetIncomingCommand> incomingUnreliableCommands = new LinkedList<ENetIncomingCommand>();
     }
 }

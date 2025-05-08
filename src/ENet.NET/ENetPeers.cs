@@ -273,7 +273,7 @@ namespace ENet.NET
                         fragmentLength = packet.dataLength - fragmentOffset;
                     }
 
-                    fragment = enet_malloc<ENetOutgoingCommand>();
+                    fragment = enet_malloc<ENetOutgoingCommand>(1)[0];
 
                     if (fragment == null)
                     {
@@ -753,7 +753,7 @@ namespace ENet.NET
                 }
             }
 
-            ENetAcknowledgement acknowledgement = enet_malloc<ENetAcknowledgement>();
+            ENetAcknowledgement acknowledgement = enet_malloc<ENetAcknowledgement>(1)[0];
             if (acknowledgement == null)
             {
                 return null;
@@ -838,7 +838,7 @@ namespace ENet.NET
 
         public static ENetOutgoingCommand enet_peer_queue_outgoing_command(ENetPeer peer, ref ENetProtocol command, ENetPacket packet, long offset, long length)
         {
-            ENetOutgoingCommand outgoingCommand = enet_malloc<ENetOutgoingCommand>();
+            ENetOutgoingCommand outgoingCommand = enet_malloc<ENetOutgoingCommand>(1)[0];
 
             if (outgoingCommand == null)
             {
@@ -993,7 +993,7 @@ namespace ENet.NET
 
         private static ENetIncomingCommand dummyCommand;
 
-        public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, ArraySegment<byte> data, int dataLength, uint flags, long fragmentCount)
+        public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, ArraySegment<byte> data, int dataLength, uint flags, int fragmentCount)
         {
             ENetChannel channel = peer.channels[command.header.channelID];
             int unreliableSequenceNumber = 0, reliableSequenceNumber = 0;
@@ -1140,7 +1140,7 @@ namespace ENet.NET
                 goto notifyError;
             }
 
-            incomingCommand = enet_malloc<ENetIncomingCommand>();
+            incomingCommand = enet_malloc<ENetIncomingCommand>(1)[0];
             if (incomingCommand == null)
             {
                 goto notifyError;

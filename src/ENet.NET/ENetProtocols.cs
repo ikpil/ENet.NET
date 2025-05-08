@@ -351,11 +351,11 @@ namespace ENet.NET
             byte incomingSessionID, outgoingSessionID;
             long mtu, windowSize;
             ENetChannel channel = null;
-            long channelCount, duplicatePeers = 0;
+            int channelCount, duplicatePeers = 0;
             ENetPeer currentPeer, peer = null;
             ENetProtocol verifyCommand = new ENetProtocol();
 
-            channelCount = ENET_NET_TO_HOST_32(command.connect.channelCount);
+            channelCount = (int)ENET_NET_TO_HOST_32(command.connect.channelCount);
 
             if (channelCount < ENET_PROTOCOL_MINIMUM_CHANNEL_COUNT || channelCount > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
             {

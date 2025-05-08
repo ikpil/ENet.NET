@@ -33,7 +33,7 @@ namespace ENet.NET
          *  the window size of a connection which limits the amount of reliable packets that may be in transit
          *  at any given time.
          */
-        public static ENetHost enet_host_create(ref ENetAddress address, long peerCount, long channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
+        public static ENetHost enet_host_create(ref ENetAddress address, int peerCount, int channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
         {
             if (peerCount > ENET_PROTOCOL_MAXIMUM_PEER_ID)
             {
@@ -41,7 +41,7 @@ namespace ENet.NET
             }
 
             ENetHost host = new ENetHost();
-            host.peers = new ENetPeer[peerCount];
+            host.peers = enet_malloc<ENetPeer>(peerCount);
             if (host.peers == null)
             {
                 enet_free(host);
@@ -50,7 +50,7 @@ namespace ENet.NET
 
             for (int i = 0; i < host.peers.Length; ++i)
             {
-                host.peers[i] = new ENetPeer();
+                host.peers[i].clear();
             }
 
             host.socket = enet_socket_create(ENetSocketType.ENET_SOCKET_TYPE_DATAGRAM);
@@ -383,7 +383,7 @@ namespace ENet.NET
          *  @param host host to limit
          *  @param channelLimit the maximum number of channels allowed; if 0, then this is equivalent to ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT
          */
-        public static void enet_host_channel_limit(ENetHost host, long channelLimit)
+        public static void enet_host_channel_limit(ENetHost host, int channelLimit)
         {
             if (0 >= channelLimit || channelLimit > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
             {

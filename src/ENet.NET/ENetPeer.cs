@@ -76,5 +76,10 @@ namespace ENet.NET
         public uint[] unsequencedWindow = new uint[ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
         public uint eventData;
         public long totalWaitingData;
+
+        public void clear()
+        {
+            // ..
+        }
     }
 }

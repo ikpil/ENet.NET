@@ -29,7 +29,7 @@ namespace ENet.NET
             else
             {
                 packet = new ENetPacket();
-                packet.data = enet_malloc_bytes(dataLength);
+                packet.data = enet_malloc<byte>(dataLength);
                 if (data != null)
                 {
                     Span<byte> src = data.AsSpan().Slice(0, dataLength);
@@ -62,7 +62,7 @@ namespace ENet.NET
                 return packet;
             }
 
-            byte[] dest = enet_malloc_bytes(dataLength);
+            byte[] dest = enet_malloc<byte>(dataLength);
             Span<byte> src = packet.data.AsSpan(0, packet.dataLength);
             src.CopyTo(dest);
 
@@ -84,7 +84,7 @@ namespace ENet.NET
             }
             else
             {
-                packet.data = enet_malloc_bytes(dataOffset + dataLength);
+                packet.data = enet_malloc<byte>(dataOffset + dataLength);
                 if (data != null)
                 {
                     Span<byte> src = data.AsSpan(dataLength);

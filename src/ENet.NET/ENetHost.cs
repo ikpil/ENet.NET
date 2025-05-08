@@ -32,7 +32,7 @@ namespace ENet.NET
         public int recalculateBandwidthLimits;
         public ENetPeer[] peers; /* array of peers allocated for this host */
         public long peerCount; /* number of peers allocated for this host */
-        public long channelLimit; /* maximum number of channels allowed for connected peers */
+        public int channelLimit; /* maximum number of channels allowed for connected peers */
         public long serviceTime;
         public LinkedList<ENetPeer> dispatchQueue = new LinkedList<ENetPeer>();
         public uint totalQueued;

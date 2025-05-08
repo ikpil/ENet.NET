@@ -13,9 +13,9 @@ namespace ENet.NET
     /** Callback for intercepting received raw UDP packets. Should return 1 to intercept, 0 to ignore, or -1 to propagate an error. */
     public delegate int ENetInterceptCallback(ENetHost host, object @event);
 
-    public delegate object MallocDelegate(long size);
+    public delegate T[] MallocDelegate<out T>(long size);
 
-    public delegate void FreeDelegate(object size);
+    public delegate void FreeDelegate<in T>(T[] size);
 
     public delegate void NoMemoryDelegate();
 
@@ -129,26 +129,11 @@ namespace ENet.NET
         // todo: @ikpil check
         internal static readonly ENetCallbacks callbacks = new ENetCallbacks
         {
-            malloc = enet_malloc_dummy,
-            free = enet_free_dummy,
-            no_memory = enet_abort,
+            allocator = new ENetDefaultAllocator(),
             packet_create = ENetPackets.enet_packet_create,
             packet_destroy = ENetPackets.enet_packet_destroy
         };
 
-        private static object enet_malloc_dummy(long size)
-        {
-            return null;
-        }
-
-        private static void enet_free_dummy(object asdf)
-        {
-        }
-
-        private static void enet_abort()
-        {
-            // ..
-        }
 
         /**
          * Initializes ENet globally and supplies user-overridden callbacks. Must be called prior to using any functions in ENet. Do not use enet_initialize() if you use this variant. Make sure the ENetCallbacks structure is zeroed out so that any additional callbacks added in future versions will be properly ignored.
@@ -164,20 +149,9 @@ namespace ENet.NET
                 return -1;
             }
 
-            if (inits.malloc != null || inits.free != null)
+            if (inits.allocator != null)
             {
-                if (inits.malloc == null || inits.free == null)
-                {
-                    return -1;
-                }
-
-                callbacks.malloc = inits.malloc;
-                callbacks.free = inits.free;
-            }
-
-            if (inits.no_memory != null)
-            {
-                callbacks.no_memory = inits.no_memory;
+                callbacks.allocator = inits.allocator;
             }
 
             if (inits.packet_create != null || inits.packet_destroy != null)
@@ -199,33 +173,22 @@ namespace ENet.NET
             return ENET_VERSION;
         }
 
-        public static T enet_malloc<T>()
+        public static T[] enet_malloc<T>(int size) where T : new()
         {
-            return enet_malloc<T>(1)[0];
-        }
-
-        public static byte[] enet_malloc_bytes(long size)
-        {
-            return new byte[size];
-        }
-
-        public static T[] enet_malloc<T>(long size)
-        {
-            object memory = callbacks.malloc(size);
+            T[] memory = callbacks.allocator.malloc<T>(size);
 
             if (memory == null)
             {
-                callbacks.no_memory();
+                callbacks.allocator.no_memory();
             }
 
-            return (T[])memory;
+            return memory;
         }
 
-        public static void enet_free(object memory)
+        public static void enet_free<T>(T memory)
         {
-            callbacks.free(memory);
+            callbacks.allocator.free(memory);
         }
-
 
 
         public static int enet_initialize()
