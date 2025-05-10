@@ -770,7 +770,12 @@ namespace ENet.NET
 
         public static void enet_peer_setup_outgoing_command(ENetPeer peer, ENetOutgoingCommand outgoingCommand)
         {
-            ENetChannel channel = peer.channels[outgoingCommand.command.header.channelID];
+            ENetChannel channel = null;
+            if (outgoingCommand.command.header.channelID < peer.channelCount)
+            {
+                channel = peer.channels[outgoingCommand.command.header.channelID];
+            }
+
             peer.outgoingDataTotal += enet_protocol_command_size(outgoingCommand.command.header.command) + outgoingCommand.fragmentLength;
 
             if (outgoingCommand.command.header.channelID == 0xFF)
