@@ -27,7 +27,7 @@ namespace ENet.NET
         public long incomingBandwidth; /* downstream bandwidth of the host */
         public long outgoingBandwidth; /* upstream bandwidth of the host */
         public long bandwidthThrottleEpoch;
-        public long mtu;
+        public int mtu;
         public uint randomSeed;
         public int recalculateBandwidthLimits;
         public ENetPeer[] peers; /* array of peers allocated for this host */
@@ -36,7 +36,7 @@ namespace ENet.NET
         public long serviceTime;
         public LinkedList<ENetPeer> dispatchQueue = new LinkedList<ENetPeer>();
         public uint totalQueued;
-        public long packetSize;
+        public int packetSize;
         public ushort headerFlags;
         public ENetProtocol[] commands = new ENetProtocol[ENets.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
         public int commandCount;

@@ -136,7 +136,7 @@ namespace ENet.NET
             return host.receivedDataLength;
         }
 
-        public static long enet_host_get_mtu(ENetHost host)
+        public static int enet_host_get_mtu(ENetHost host)
         {
             return host.mtu;
         }

@@ -319,7 +319,7 @@ namespace ENet.NET
          *  @retval <0 error
          *  @sa enet_socket_send
          */
-        public static int enet_host_send_raw(ENetHost host, ref ENetAddress address, byte[] data, long dataLength)
+        public static int enet_host_send_raw(ENetHost host, ref ENetAddress address, byte[] data, int dataLength)
         {
             ENetBuffer buffer = new ENetBuffer();
             buffer.data = data;
@@ -338,7 +338,7 @@ namespace ENet.NET
          *  @retval <0 error
          *  @sa enet_socket_send
          */
-        public static int enet_host_send_raw_ex(ENetHost host, ref ENetAddress address, ArraySegment<byte> data, int skipBytes, long bytesToSend)
+        public static int enet_host_send_raw_ex(ENetHost host, ref ENetAddress address, ArraySegment<byte> data, int skipBytes, int bytesToSend)
         {
             // todo : @ikpil check
             enet_assert(false);

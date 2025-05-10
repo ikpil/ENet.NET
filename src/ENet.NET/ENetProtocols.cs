@@ -1528,7 +1528,7 @@ namespace ENet.NET
                 // buffer.dataLength = sizeof (host.packetData[0]);
                 buffer.dataLength = host.mtu;
 
-                receivedLength = enet_socket_receive(host.socket, ref host.receivedAddress, ref buffer, 1);
+                receivedLength = enet_socket_receive(host.socket, ref host.receivedAddress, ref buffer);
 
                 if (receivedLength == -2)
                     continue;
@@ -1712,7 +1712,7 @@ namespace ENet.NET
             LinkedListNode<ENetOutgoingCommand> currentCommand, currentSendReliableCommand = null;
             ENetChannel channel = null;
             int reliableWindow = 0;
-            long commandSize = 0;
+            int commandSize = 0;
             int windowWrap = 0, canPing = 1;
 
             currentCommand = peer.outgoingCommands.First;
@@ -1922,7 +1922,7 @@ namespace ENet.NET
             ENetProtocolSendOutgoingCommand headerData = new ENetProtocolSendOutgoingCommand();
             ref ENetProtocolHeader header = ref headerData.header;
             int sentLength = 0;
-            long shouldCompress = 0;
+            int shouldCompress = 0;
             LinkedList<ENetOutgoingCommand> sentUnreliableCommands = new LinkedList<ENetOutgoingCommand>();
             int sendPass = 0, continueSending = 0;
             ENetPeer currentPeer = null;
@@ -2026,7 +2026,7 @@ namespace ENet.NET
                     shouldCompress = 0;
                     if (host.compressor.context != null && host.compressor.compress != null)
                     {
-                        long originalSize = host.packetSize - Marshal.SizeOf<ENetProtocolHeader>(),
+                        int originalSize = host.packetSize - Marshal.SizeOf<ENetProtocolHeader>(),
                             compressedSize = host.compressor.compress(host.compressor.context, ref host.buffers[1], host.bufferCount - 1, originalSize, host.packetData[1], originalSize);
                         if (compressedSize > 0 && compressedSize < originalSize)
                         {

@@ -294,6 +294,7 @@ namespace ENet.NET
 
         public static int enet_socket_send(Socket socket, ref ENetAddress address, ENetBuffer buffers)
         {
+            enet_assert(false);
             return -1;
         }
 
@@ -328,10 +329,51 @@ namespace ENet.NET
             }
         }
 
-        public static int enet_socket_receive(Socket socket, ref ENetAddress address, ref ENetBuffer buffers, long bufferCount)
+        public static int enet_socket_receive(Socket socket, ref ENetAddress address, ref ENetBuffer buffer)
         {
-            enet_assert(false);
-            return -1;
+            try
+            {
+                if (socket == null)
+                    return -1;
+
+                EndPoint remoteEP = null;
+                if (address.host != null)
+                {
+                    remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
+                }
+
+                int received = socket.Receive(buffer.data.Slice(0, buffer.dataLength));
+
+                if (address.host != null && remoteEP is IPEndPoint ipEndPoint)
+                {
+                    var host = ipEndPoint.Address;
+                    var port = (ushort)ipEndPoint.Port;
+                    var scopeId = address.sin6_scope_id;
+
+                    if (ipEndPoint.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                    {
+                        scopeId = (uint)ipEndPoint.Address.ScopeId;
+                    }
+
+                    address = new ENetAddress(host, port, scopeId);
+                }
+
+                return received;
+            }
+            catch (SocketException ex)
+            {
+                switch (ex.SocketErrorCode)
+                {
+                    case SocketError.WouldBlock:
+                    case SocketError.ConnectionReset:
+                        return 0;
+                    case SocketError.Interrupted:
+                    case SocketError.MessageSize:
+                        return -2;
+                    default:
+                        return -1;
+                }
+            }
         }
 
         public static int enet_socket_receive(Socket socket, ref ENetAddress address, Span<ENetBuffer> buffers, long bufferCount)
