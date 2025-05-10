@@ -67,9 +67,9 @@ public static class Program
         }
 
         print($"starting clients...");
+        enet_address_set_host(out address, "127.0.0.1");
         for (i = 0; i < MAX_CLIENTS; ++i)
         {
-            enet_address_set_host(out address, "127.0.0.1");
             var empty = new ENetAddress();
             clients[i].host = enet_host_create(ref empty, 1, 2, 0, 0);
             clients[i].peer = enet_host_connect(clients[i].host, ref address, 2, 0);
@@ -78,6 +78,8 @@ public static class Program
                 perror($"coundlnt connect");
                 return 1;
             }
+
+            print($"client - index({i})");
         }
 
         print($"running server...");
