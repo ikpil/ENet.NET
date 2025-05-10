@@ -279,7 +279,7 @@ namespace ENet.NET
                     {
                         while (!enet_list_empty(fragments))
                         {
-                            fragment = enet_list_remove(enet_list_begin(fragments));
+                            fragment = enet_list_remove(fragments.First);
 
                             enet_free(fragment);
                         }
@@ -308,7 +308,7 @@ namespace ENet.NET
 
                 while (!enet_list_empty(fragments))
                 {
-                    fragment = enet_list_remove(enet_list_begin(fragments));
+                    fragment = enet_list_remove(fragments.First);
                     enet_peer_setup_outgoing_command(peer, fragment);
                 }
 
@@ -357,7 +357,7 @@ namespace ENet.NET
                 return null;
             }
 
-            incomingCommand = enet_list_remove(enet_list_begin(peer.dispatchedCommands));
+            incomingCommand = enet_list_remove(peer.dispatchedCommands.First);
 
             //if (channelID != null) {
             channelID = incomingCommand.command.header.channelID;
@@ -383,7 +383,7 @@ namespace ENet.NET
 
             while (!enet_list_empty(queue))
             {
-                outgoingCommand = enet_list_remove(enet_list_begin(queue));
+                outgoingCommand = enet_list_remove(queue.First);
 
                 if (outgoingCommand.packet != null)
                 {
@@ -409,7 +409,7 @@ namespace ENet.NET
             {
                 ENetIncomingCommand incomingCommand = currentCommand.Value;
 
-                currentCommand = enet_list_next(currentCommand);
+                currentCommand = currentCommand.Next;
 
                 if (incomingCommand == excludeCommand)
                     continue;
@@ -439,7 +439,7 @@ namespace ENet.NET
 
         public static void enet_peer_reset_incoming_commands(ENetPeer peer, LinkedList<ENetIncomingCommand> queue)
         {
-            enet_peer_remove_incoming_commands(peer, queue, enet_list_begin(queue), enet_list_end(queue), null);
+            enet_peer_remove_incoming_commands(peer, queue, queue.First, queue.Last, null);
         }
 
         public static void enet_peer_reset_queues(ENetPeer peer)
@@ -452,7 +452,7 @@ namespace ENet.NET
 
             while (!enet_list_empty(peer.acknowledgements))
             {
-                enet_free(enet_list_remove(enet_list_begin(peer.acknowledgements)));
+                enet_free(enet_list_remove(peer.acknowledgements.First));
             }
 
             enet_peer_reset_outgoing_commands(peer, peer.sentReliableCommands);
@@ -867,9 +867,9 @@ namespace ENet.NET
         {
             LinkedListNode<ENetIncomingCommand> droppedCommand, startCommand, currentCommand = null;
 
-            for (droppedCommand = startCommand = currentCommand = enet_list_begin(channel.incomingUnreliableCommands);
-                 currentCommand != enet_list_end(channel.incomingUnreliableCommands);
-                 currentCommand = enet_list_next(currentCommand)
+            for (droppedCommand = startCommand = currentCommand = channel.incomingUnreliableCommands.First;
+                 currentCommand != channel.incomingUnreliableCommands.Last;
+                 currentCommand = currentCommand.Next
                 )
             {
                 ENetIncomingCommand incomingCommand = currentCommand.Value;
@@ -889,7 +889,7 @@ namespace ENet.NET
 
                     if (startCommand != currentCommand)
                     {
-                        enet_list_move(enet_list_end(peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
+                        enet_list_move(peer.dispatchedCommands.Last, startCommand, currentCommand.Previous);
 
                         if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
                         {
@@ -901,7 +901,7 @@ namespace ENet.NET
                     }
                     else if (droppedCommand != currentCommand)
                     {
-                        droppedCommand = enet_list_previous(currentCommand);
+                        droppedCommand = currentCommand.Previous;
                     }
                 }
                 else
@@ -919,11 +919,11 @@ namespace ENet.NET
                         break;
                     }
 
-                    droppedCommand = enet_list_next(currentCommand);
+                    droppedCommand = currentCommand.Next;
 
                     if (startCommand != currentCommand)
                     {
-                        enet_list_move(enet_list_end(peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
+                        enet_list_move(peer.dispatchedCommands.Last, startCommand, currentCommand.Previous);
 
                         if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
                         {
@@ -933,12 +933,12 @@ namespace ENet.NET
                     }
                 }
 
-                startCommand = enet_list_next(currentCommand);
+                startCommand = currentCommand.Next;
             }
 
             if (startCommand != currentCommand)
             {
-                enet_list_move(enet_list_end(peer.dispatchedCommands), startCommand, enet_list_previous(currentCommand));
+                enet_list_move(peer.dispatchedCommands.Last, startCommand, currentCommand.Previous);
 
                 if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
                 {
@@ -949,16 +949,16 @@ namespace ENet.NET
                 droppedCommand = currentCommand;
             }
 
-            enet_peer_remove_incoming_commands(peer, channel.incomingUnreliableCommands, enet_list_begin(channel.incomingUnreliableCommands), droppedCommand, queuedCommand);
+            enet_peer_remove_incoming_commands(peer, channel.incomingUnreliableCommands, channel.incomingUnreliableCommands.First, droppedCommand, queuedCommand);
         }
 
         public static void enet_peer_dispatch_incoming_reliable_commands(ENetPeer peer, ENetChannel channel, ENetIncomingCommand queuedCommand)
         {
             LinkedListNode<ENetIncomingCommand> currentCommand;
 
-            for (currentCommand = enet_list_begin(channel.incomingReliableCommands);
-                 currentCommand != enet_list_end(channel.incomingReliableCommands);
-                 currentCommand = enet_list_next(currentCommand)
+            for (currentCommand = channel.incomingReliableCommands.First;
+                 currentCommand != channel.incomingReliableCommands.Last;
+                 currentCommand = currentCommand.Next
                 )
             {
                 ENetIncomingCommand incomingCommand = currentCommand.Value;
@@ -976,13 +976,13 @@ namespace ENet.NET
                 }
             }
 
-            if (currentCommand == enet_list_begin(channel.incomingReliableCommands))
+            if (currentCommand == channel.incomingReliableCommands.First)
             {
                 return;
             }
 
             channel.incomingUnreliableSequenceNumber = 0;
-            enet_list_move(enet_list_end(peer.dispatchedCommands), enet_list_begin(channel.incomingReliableCommands), enet_list_previous(currentCommand));
+            enet_list_move(peer.dispatchedCommands.Last, channel.incomingReliableCommands.First, currentCommand.Previous);
 
             if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
             {
@@ -1038,9 +1038,9 @@ namespace ENet.NET
                         goto discardCommand;
                     }
 
-                    for (currentCommand = enet_list_previous(enet_list_end(channel.incomingReliableCommands));
-                         currentCommand != enet_list_end(channel.incomingReliableCommands);
-                         currentCommand = enet_list_previous(currentCommand)
+                    for (currentCommand = channel.incomingReliableCommands.Last.Previous;
+                         currentCommand != channel.incomingReliableCommands.Last;
+                         currentCommand = currentCommand.Previous
                         )
                     {
                         incomingCommand = currentCommand.Value;
@@ -1079,9 +1079,9 @@ namespace ENet.NET
                         goto discardCommand;
                     }
 
-                    for (currentCommand = enet_list_previous(enet_list_end(channel.incomingUnreliableCommands));
-                         currentCommand != enet_list_end(channel.incomingUnreliableCommands);
-                         currentCommand = enet_list_previous(currentCommand)
+                    for (currentCommand = channel.incomingUnreliableCommands.Last.Previous;
+                         currentCommand != channel.incomingUnreliableCommands.Last;
+                         currentCommand = currentCommand.Previous
                         )
                     {
                         incomingCommand = currentCommand.Value;
@@ -1127,7 +1127,7 @@ namespace ENet.NET
                     break;
 
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED:
-                    currentCommand = enet_list_end(channel.incomingUnreliableCommands);
+                    currentCommand = channel.incomingUnreliableCommands.Last;
                     break;
 
                 default:
@@ -1180,7 +1180,7 @@ namespace ENet.NET
             ++packet.referenceCount;
             peer.totalWaitingData += packet.dataLength;
 
-            enet_list_insert(enet_list_next(currentCommand), incomingCommand);
+            enet_list_insert(currentCommand.Next, incomingCommand);
 
             switch (command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK)
             {

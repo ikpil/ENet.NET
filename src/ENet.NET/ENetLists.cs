@@ -9,29 +9,9 @@ namespace ENet.NET
         // ! List
         // !
         // =======================================================================//
-        public static LinkedListNode<T> enet_list_begin<T>(LinkedList<T> list)
-        {
-            return list.First;
-        }
-
-        public static LinkedListNode<T> enet_list_end<T>(LinkedList<T> list)
-        {
-            return list.Last;
-        }
-
         public static bool enet_list_empty<T>(LinkedList<T> list)
         {
             return 0 >= list.Count;
-        }
-
-        public static LinkedListNode<T> enet_list_next<T>(LinkedListNode<T> iterator)
-        {
-            return iterator.Next;
-        }
-
-        public static LinkedListNode<T> enet_list_previous<T>(LinkedListNode<T> iterator)
-        {
-            return iterator.Previous;
         }
 
         public static LinkedListNode<T> enet_list_insert<T>(LinkedListNode<T> position, T data)
