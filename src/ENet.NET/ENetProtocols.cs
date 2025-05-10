@@ -73,7 +73,7 @@ namespace ENet.NET
         {
             while (!host.dispatchQueue.IsEmpty())
             {
-                ENetPeer peer = enet_list_remove(host.dispatchQueue.First);
+                ENetPeer peer = host.dispatchQueue.First.RemoveAndGet();
                 peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
 
                 switch (peer.state)
@@ -213,7 +213,7 @@ namespace ENet.NET
             do
             {
                 ENetOutgoingCommand outgoingCommand = sentUnreliableCommands.First.Value;
-                enet_list_remove(outgoingCommand.outgoingCommandList);
+                outgoingCommand.outgoingCommandList.RemoveAndGet();
 
                 if (outgoingCommand.packet != null)
                 {
@@ -313,7 +313,7 @@ namespace ENet.NET
             }
 
             commandNumber = (byte)(outgoingCommand.command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK);
-            enet_list_remove(outgoingCommand.outgoingCommandList);
+            outgoingCommand.outgoingCommandList.RemoveAndGet();
 
             if (outgoingCommand.packet != null)
             {
@@ -1630,7 +1630,7 @@ namespace ENet.NET
                     enet_protocol_dispatch_state(host, peer, ENetPeerState.ENET_PEER_STATE_ZOMBIE);
                 }
 
-                enet_list_remove(acknowledgement.acknowledgementList);
+                acknowledgement.acknowledgementList.RemoveAndGet();
                 enet_free(acknowledgement);
 
                 ++ncommand;
@@ -1686,11 +1686,11 @@ namespace ENet.NET
                 if (outgoingCommand.packet != null)
                 {
                     peer.reliableDataInTransit -= outgoingCommand.fragmentLength;
-                    enet_list_insert(insertSendReliablePosition, enet_list_remove(outgoingCommand.outgoingCommandList));
+                    insertSendReliablePosition.AddAfter(outgoingCommand.outgoingCommandList.RemoveAndGet());
                 }
                 else
                 {
-                    enet_list_insert(insertPosition, enet_list_remove(outgoingCommand.outgoingCommandList));
+                    insertPosition.AddAfter(outgoingCommand.outgoingCommandList.RemoveAndGet());
                 }
 
                 if (currentCommand == peer.sentReliableCommands.First && !peer.sentReliableCommands.IsEmpty())
@@ -1817,7 +1817,7 @@ namespace ENet.NET
                         peer.nextTimeout = host.serviceTime + outgoingCommand.roundTripTimeout;
                     }
 
-                    peer.sentReliableCommands.AddLast(enet_list_remove(outgoingCommand.outgoingCommandList));
+                    peer.sentReliableCommands.AddLast(outgoingCommand.outgoingCommandList.RemoveAndGet());
 
                     outgoingCommand.sentTime = host.serviceTime;
 
@@ -1844,7 +1844,7 @@ namespace ENet.NET
                                     enet_packet_destroy(outgoingCommand.packet);
                                 }
 
-                                enet_list_remove(outgoingCommand.outgoingCommandList);
+                                outgoingCommand.outgoingCommandList.RemoveAndGet();
                                 enet_free(outgoingCommand);
 
                                 if (currentCommand == peer.outgoingCommands.Last)
@@ -1866,7 +1866,7 @@ namespace ENet.NET
                         }
                     }
 
-                    enet_list_remove(outgoingCommand.outgoingCommandList);
+                    outgoingCommand.outgoingCommandList.RemoveAndGet();
 
                     if (outgoingCommand.packet != null)
                     {
@@ -1996,9 +1996,9 @@ namespace ENet.NET
                         float packetLoss1 = currentPeer.packetLoss / (float)ENET_PEER_PACKET_LOSS_SCALE;
                         float packetLoss2 = currentPeer.packetLossVariance / (float)ENET_PEER_PACKET_LOSS_SCALE;
                         float throttle = currentPeer.packetThrottle / (float)ENET_PEER_PACKET_THROTTLE_SCALE;
-                        int outgoing = enet_list_size(currentPeer.outgoingCommands);
-                        int incoming1 = currentPeer.channels != null ? enet_list_size(currentPeer.channels[0].incomingReliableCommands) : 0;
-                        int incoming2 = currentPeer.channels != null ? enet_list_size(currentPeer.channels[0].incomingUnreliableCommands) : 0;
+                        int outgoing = currentPeer.outgoingCommands.Count;
+                        int incoming1 = currentPeer.channels != null ? currentPeer.channels[0].incomingReliableCommands.Count : 0;
+                        int incoming2 = currentPeer.channels != null ? currentPeer.channels[0].incomingUnreliableCommands.Count : 0;
                         print($"peer {currentPeer.incomingPeerID}: {packetLoss1}+-{packetLoss2} packet loss, {currentPeer.roundTripTime}+-{currentPeer.roundTripTimeVariance} ms round trip time, {throttle} throttle, {outgoing} outgoing, {incoming1}/{incoming2} incoming");
 #endif
 

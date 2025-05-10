@@ -14,24 +14,18 @@ namespace ENet.NET
             return 0 >= list.Count;
         }
         
-        public static T RemoveAndGetValue<T>(LinkedListNode<T> position)
+        public static T RemoveAndGet<T>(this LinkedListNode<T> position)
         {
             position.List.Remove(position);
             return position.Value;
         }
 
-        public static LinkedListNode<T> enet_list_insert<T>(LinkedListNode<T> position, T data)
+        public static LinkedListNode<T> AddAfter<T>(this LinkedListNode<T> position, T data)
         {
             return position.List.AddAfter(position, data);
         }
 
-        public static T enet_list_remove<T>(LinkedListNode<T> position)
-        {
-            position.List.Remove(position);
-            return position.Value;
-        }
-
-        public static LinkedListNode<T> enet_list_move<T>(LinkedListNode<T> position, LinkedListNode<T> first, LinkedListNode<T> last)
+        public static LinkedListNode<T> MoveBefore<T>(this LinkedListNode<T> position, LinkedListNode<T> first, LinkedListNode<T> last)
         {
             var list = position.List;
             var current = first;
@@ -48,11 +42,6 @@ namespace ENet.NET
             }
 
             return first;
-        }
-
-        public static int enet_list_size<T>(LinkedList<T> list)
-        {
-            return list.Count;
         }
     }
 }
