@@ -277,7 +277,7 @@ namespace ENet.NET
 
                     if (fragment == null)
                     {
-                        while (!enet_list_empty(fragments))
+                        while (!fragments.IsEmpty())
                         {
                             fragment = enet_list_remove(fragments.First);
 
@@ -306,7 +306,7 @@ namespace ENet.NET
 
                 packet.referenceCount += fragmentNumber;
 
-                while (!enet_list_empty(fragments))
+                while (!fragments.IsEmpty())
                 {
                     fragment = enet_list_remove(fragments.First);
                     enet_peer_setup_outgoing_command(peer, fragment);
@@ -352,7 +352,7 @@ namespace ENet.NET
             ENetIncomingCommand incomingCommand;
             ENetPacket packet;
 
-            if (enet_list_empty(peer.dispatchedCommands))
+            if (peer.dispatchedCommands.IsEmpty())
             {
                 return null;
             }
@@ -381,7 +381,7 @@ namespace ENet.NET
         {
             ENetOutgoingCommand outgoingCommand;
 
-            while (!enet_list_empty(queue))
+            while (!queue.IsEmpty())
             {
                 outgoingCommand = enet_list_remove(queue.First);
 
@@ -450,7 +450,7 @@ namespace ENet.NET
                 peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
             }
 
-            while (!enet_list_empty(peer.acknowledgements))
+            while (!peer.acknowledgements.IsEmpty())
             {
                 enet_free(enet_list_remove(peer.acknowledgements.First));
             }
@@ -703,9 +703,9 @@ namespace ENet.NET
 
         public static bool enet_peer_has_outgoing_commands(ENetPeer peer)
         {
-            if (enet_list_empty(peer.outgoingCommands) &&
-                enet_list_empty(peer.outgoingSendReliableCommands) &&
-                enet_list_empty(peer.sentReliableCommands))
+            if (peer.outgoingCommands.IsEmpty() &&
+                peer.outgoingSendReliableCommands.IsEmpty() &&
+                peer.sentReliableCommands.IsEmpty())
             {
                 return false;
             }
@@ -990,7 +990,7 @@ namespace ENet.NET
                 peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
             }
 
-            if (!enet_list_empty(channel.incomingUnreliableCommands))
+            if (!channel.incomingUnreliableCommands.IsEmpty())
             {
                 enet_peer_dispatch_incoming_unreliable_commands(peer, channel, queuedCommand);
             }

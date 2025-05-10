@@ -9,9 +9,15 @@ namespace ENet.NET
         // ! List
         // !
         // =======================================================================//
-        public static bool enet_list_empty<T>(LinkedList<T> list)
+        public static bool IsEmpty<T>(this LinkedList<T> list)
         {
             return 0 >= list.Count;
+        }
+        
+        public static T RemoveAndGetValue<T>(LinkedListNode<T> position)
+        {
+            position.List.Remove(position);
+            return position.Value;
         }
 
         public static LinkedListNode<T> enet_list_insert<T>(LinkedListNode<T> position, T data)

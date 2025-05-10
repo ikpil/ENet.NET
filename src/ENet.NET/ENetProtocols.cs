@@ -71,7 +71,7 @@ namespace ENet.NET
 
         public static int enet_protocol_dispatch_incoming_commands(ENetHost host, ENetEvent @event)
         {
-            while (!enet_list_empty(host.dispatchQueue))
+            while (!host.dispatchQueue.IsEmpty())
             {
                 ENetPeer peer = enet_list_remove(host.dispatchQueue.First);
                 peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
@@ -100,7 +100,7 @@ namespace ENet.NET
                         return 1;
 
                     case ENetPeerState.ENET_PEER_STATE_CONNECTED:
-                        if (enet_list_empty(peer.dispatchedCommands))
+                        if (peer.dispatchedCommands.IsEmpty())
                         {
                             continue;
                         }
@@ -114,7 +114,7 @@ namespace ENet.NET
                         @event.type = ENetEventType.ENET_EVENT_TYPE_RECEIVE;
                         @event.peer = peer;
 
-                        if (!enet_list_empty(peer.dispatchedCommands))
+                        if (!peer.dispatchedCommands.IsEmpty())
                         {
                             peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
                             host.dispatchQueue.AddLast(peer.dispatchList);
@@ -207,7 +207,7 @@ namespace ENet.NET
 
         public static void enet_protocol_remove_sent_unreliable_commands(ENetPeer peer, LinkedList<ENetOutgoingCommand> sentUnreliableCommands)
         {
-            if (enet_list_empty(sentUnreliableCommands))
+            if (sentUnreliableCommands.IsEmpty())
                 return;
 
             do
@@ -227,7 +227,7 @@ namespace ENet.NET
                 }
 
                 enet_free(outgoingCommand);
-            } while (!enet_list_empty(sentUnreliableCommands));
+            } while (!sentUnreliableCommands.IsEmpty());
 
             if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER && !enet_peer_has_outgoing_commands(peer))
             {
@@ -333,7 +333,7 @@ namespace ENet.NET
 
             enet_free(outgoingCommand);
 
-            if (enet_list_empty(peer.sentReliableCommands))
+            if (peer.sentReliableCommands.IsEmpty())
             {
                 return commandNumber;
             }
@@ -1693,7 +1693,7 @@ namespace ENet.NET
                     enet_list_insert(insertPosition, enet_list_remove(outgoingCommand.outgoingCommandList));
                 }
 
-                if (currentCommand == peer.sentReliableCommands.First && !enet_list_empty(peer.sentReliableCommands))
+                if (currentCommand == peer.sentReliableCommands.First && !peer.sentReliableCommands.IsEmpty())
                 {
                     outgoingCommand = currentCommand.Value;
                     peer.nextTimeout = outgoingCommand.sentTime + outgoingCommand.roundTripTimeout;
@@ -1812,7 +1812,7 @@ namespace ENet.NET
                         outgoingCommand.roundTripTimeout = (uint)(peer.roundTripTime + 4 * peer.roundTripTimeVariance);
                     }
 
-                    if (enet_list_empty(peer.sentReliableCommands))
+                    if (peer.sentReliableCommands.IsEmpty())
                     {
                         peer.nextTimeout = host.serviceTime + outgoingCommand.roundTripTimeout;
                     }
@@ -1908,7 +1908,7 @@ namespace ENet.NET
 
             if (peer.state == ENetPeerState.ENET_PEER_STATE_DISCONNECT_LATER &&
                 !enet_peer_has_outgoing_commands(peer) &&
-                enet_list_empty(sentUnreliableCommands))
+                sentUnreliableCommands.IsEmpty())
             {
                 enet_peer_disconnect(peer, peer.eventData);
             }
@@ -1946,13 +1946,13 @@ namespace ENet.NET
                     host.bufferCount = 1;
                     host.packetSize = Marshal.SizeOf<ENetProtocolHeader>();
 
-                    if (!enet_list_empty(currentPeer.acknowledgements))
+                    if (!currentPeer.acknowledgements.IsEmpty())
                     {
                         enet_protocol_send_acknowledgements(host, currentPeer);
                     }
 
                     if (checkForTimeouts != 0 &&
-                        !enet_list_empty(currentPeer.sentReliableCommands) &&
+                        !currentPeer.sentReliableCommands.IsEmpty() &&
                         ENET_TIME_GREATER_EQUAL(host.serviceTime, currentPeer.nextTimeout) &&
                         enet_protocol_check_timeouts(host, currentPeer, @event) == 1
                        )
@@ -1967,10 +1967,10 @@ namespace ENet.NET
                         }
                     }
 
-                    if (((enet_list_empty(currentPeer.outgoingCommands) &&
-                          enet_list_empty(currentPeer.outgoingSendReliableCommands)) ||
+                    if (((currentPeer.outgoingCommands.IsEmpty() &&
+                          currentPeer.outgoingSendReliableCommands.IsEmpty()) ||
                          0 != enet_protocol_check_outgoing_commands(host, currentPeer, sentUnreliableCommands)) &&
-                        enet_list_empty(currentPeer.sentReliableCommands) &&
+                        currentPeer.sentReliableCommands.IsEmpty() &&
                         ENET_TIME_DIFFERENCE(host.serviceTime, currentPeer.lastReceiveTime) >= currentPeer.pingInterval &&
                         currentPeer.mtu - host.packetSize >= Marshal.SizeOf<ENetProtocolPing>()
                        )
