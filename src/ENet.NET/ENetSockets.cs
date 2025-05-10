@@ -9,7 +9,7 @@ namespace ENet.NET
 {
     public static class ENetSockets
     {
-        public static int enet_socket_bind(Socket socket, ref ENetAddress address)
+        public static int enet_socket_bind(Socket socket, ENetAddress address)
         {
             try
             {
@@ -34,8 +34,9 @@ namespace ENet.NET
                 socket.Bind(endPoint);
                 return 0; // 성공
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1; // 실패
             }
         }
@@ -64,8 +65,9 @@ namespace ENet.NET
 
                 return 0;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1;
             }
         }
@@ -80,8 +82,9 @@ namespace ENet.NET
                 socket.Listen(backlog < 0 ? (int)SocketOptionName.MaxConnections : backlog);
                 return 0;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1;
             }
         }
@@ -153,8 +156,9 @@ namespace ENet.NET
 
                 return 0;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1;
             }
         }
@@ -186,9 +190,10 @@ namespace ENet.NET
 
                 return 0;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
                 value = 0;
+                print(e.ToString());
                 return -1;
             }
         }
@@ -203,8 +208,9 @@ namespace ENet.NET
                 socket.Connect(address.host, address.port);
                 return socket.Connected ? 0 : -1;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1;
             }
         }
@@ -238,8 +244,9 @@ namespace ENet.NET
 
                 return acceptedSocket;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return null;
             }
         }
@@ -270,8 +277,9 @@ namespace ENet.NET
                 socket.Shutdown(shutdownMode);
                 return 0;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1;
             }
         }
@@ -286,9 +294,9 @@ namespace ENet.NET
                     socket.Dispose();
                 }
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
-                // 소켓 닫기 실패는 무시
+                print(e.ToString());
             }
         }
 
@@ -312,7 +320,7 @@ namespace ENet.NET
                     if (buffer.data == null || buffer.dataLength <= 0)
                         continue;
 
-                    bufferList.Add(buffer.data.Slice(0, (int)buffer.dataLength));
+                    bufferList.Add(buffer.ToArraySegment());
                 }
 
                 if (bufferList.Count == 0)
@@ -321,10 +329,12 @@ namespace ENet.NET
                 int sent = socket.Send(bufferList);
                 return sent;
             }
-            catch (SocketException ex)
+            catch (SocketException e)
             {
-                if (ex.SocketErrorCode == SocketError.WouldBlock)
+                if (e.SocketErrorCode == SocketError.WouldBlock)
                     return 0;
+
+                print(e.ToString());
                 return -1;
             }
         }
@@ -342,7 +352,9 @@ namespace ENet.NET
                     remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
                 }
 
-                int received = socket.Receive(buffer.data.Slice(0, buffer.dataLength));
+                //int received = socket.Receive(buffer.data.Slice(0, buffer.dataLength));
+                //int received = socket.ReceiveFrom(buffer.data, SocketFlags.None, ref remoteEP);
+                int received = socket.ReceiveFrom(buffer.data, buffer.offset, buffer.dataLength, SocketFlags.None, ref remoteEP);
 
                 if (address.host != null && remoteEP is IPEndPoint ipEndPoint)
                 {
@@ -360,9 +372,9 @@ namespace ENet.NET
 
                 return received;
             }
-            catch (SocketException ex)
+            catch (SocketException e)
             {
-                switch (ex.SocketErrorCode)
+                switch (e.SocketErrorCode)
                 {
                     case SocketError.WouldBlock:
                     case SocketError.ConnectionReset:
@@ -371,6 +383,7 @@ namespace ENet.NET
                     case SocketError.MessageSize:
                         return -2;
                     default:
+                        print(e.ToString());
                         return -1;
                 }
             }
@@ -390,7 +403,7 @@ namespace ENet.NET
                     if (buffer.data == null || buffer.dataLength <= 0)
                         continue;
 
-                    bufferList.Add(buffer.data.Slice(0, (int)buffer.dataLength));
+                    bufferList.Add(buffer.ToArraySegment());
                 }
 
                 if (bufferList.Count == 0)
@@ -420,9 +433,9 @@ namespace ENet.NET
 
                 return received;
             }
-            catch (SocketException ex)
+            catch (SocketException e)
             {
-                switch (ex.SocketErrorCode)
+                switch (e.SocketErrorCode)
                 {
                     case SocketError.WouldBlock:
                     case SocketError.ConnectionReset:
@@ -431,6 +444,7 @@ namespace ENet.NET
                     case SocketError.MessageSize:
                         return -2;
                     default:
+                        print(e.ToString());
                         return -1;
                 }
             }
@@ -451,8 +465,9 @@ namespace ENet.NET
 
                 return readSet.Count + writeSet.Count;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1;
             }
         }
@@ -499,8 +514,9 @@ namespace ENet.NET
 
                 return 0;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                print(e.ToString());
                 return -1;
             }
         }

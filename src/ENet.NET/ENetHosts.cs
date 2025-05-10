@@ -33,7 +33,7 @@ namespace ENet.NET
          *  the window size of a connection which limits the amount of reliable packets that may be in transit
          *  at any given time.
          */
-        public static ENetHost enet_host_create(ref ENetAddress address, int peerCount, int channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
+        public static ENetHost enet_host_create(ENetAddress address, int peerCount, int channelLimit, uint incomingBandwidth, uint outgoingBandwidth)
         {
             if (peerCount > ENET_PROTOCOL_MAXIMUM_PEER_ID)
             {
@@ -59,7 +59,7 @@ namespace ENet.NET
                 enet_socket_set_option(host.socket, ENetSocketOption.ENET_SOCKOPT_IPV6_V6ONLY, 0);
             }
 
-            if (host.socket == null || (address.host != null && enet_socket_bind(host.socket, ref address) < 0))
+            if (host.socket == null || (address.host != null && enet_socket_bind(host.socket, address) < 0))
             {
                 if (host.socket != null)
                 {
@@ -187,7 +187,7 @@ namespace ENet.NET
          *  @remarks The peer returned will have not completed the connection until enet_host_service()
          *  notifies of an ENET_EVENT_TYPE_CONNECT event for the peer.
          */
-        public static ENetPeer enet_host_connect(ENetHost host, ref ENetAddress address, int channelCount, uint data)
+        public static ENetPeer enet_host_connect(ENetHost host, ENetAddress address, int channelCount, uint data)
         {
             ENetPeer currentPeer = null;
             ENetChannel channel = null;
@@ -338,13 +338,14 @@ namespace ENet.NET
          *  @retval <0 error
          *  @sa enet_socket_send
          */
-        public static int enet_host_send_raw_ex(ENetHost host, ref ENetAddress address, ArraySegment<byte> data, int skipBytes, int bytesToSend)
+        public static int enet_host_send_raw_ex(ENetHost host, ref ENetAddress address, byte[] data, int offset, int skipBytes, int bytesToSend)
         {
             // todo : @ikpil check
             enet_assert(false);
 
             ENetBuffer buffer;
-            buffer.data = data.Slice(skipBytes);
+            buffer.data = data;
+            buffer.offset = offset;
             buffer.dataLength = bytesToSend;
             return enet_socket_send(host.socket, ref address, buffer);
         }

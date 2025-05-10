@@ -74,10 +74,8 @@ namespace ENet.NET
         }
 
 
-        public static int enet_in6addr_lookup_host(string name, bool noDns, out ENetAddress outAddr)
+        public static int enet_in6addr_lookup_host(string name, bool noDns, ref ENetAddress address)
         {
-            outAddr = new ENetAddress();
-
             try
             {
                 // If noDns is true, we only accept numeric IP addresses
@@ -88,7 +86,7 @@ namespace ENet.NET
                         return -1;
                     }
 
-                    outAddr = new ENetAddress(ipAddress, 0, ipAddress.ScopeId);
+                    address = new ENetAddress(ipAddress, address.port, ipAddress.ScopeId);
                     return 0;
                 }
 
@@ -101,11 +99,13 @@ namespace ENet.NET
 
                 // Prefer IPv6 addresses if available
                 IPAddress selectedAddress = null;
+                bool isIpV6 = false;
                 foreach (IPAddress addr in addresses)
                 {
                     if (addr.AddressFamily == AddressFamily.InterNetworkV6)
                     {
                         selectedAddress = addr;
+                        isIpV6 = true;
                         break;
                     }
                     else if (addr.AddressFamily == AddressFamily.InterNetwork)
@@ -120,7 +120,7 @@ namespace ENet.NET
                     return -1;
                 }
 
-                outAddr = new ENetAddress(selectedAddress, 0, selectedAddress.ScopeId);
+                address = new ENetAddress(selectedAddress, address.port, isIpV6 ? selectedAddress.ScopeId : 0);
                 return 0;
             }
             catch
@@ -130,14 +130,14 @@ namespace ENet.NET
         }
 
 
-        public static int enet_address_set_host_ip(out ENetAddress address, string name)
+        public static int enet_address_set_host_ip(ref ENetAddress address, string name)
         {
-            return enet_in6addr_lookup_host(name, true, out address);
+            return enet_in6addr_lookup_host(name, true, ref address);
         }
 
-        public static int enet_address_set_host(out ENetAddress address, string name)
+        public static int enet_address_set_host(ref ENetAddress address, string name)
         {
-            return enet_in6addr_lookup_host(name, false, out address);
+            return enet_in6addr_lookup_host(name, false, ref address);
         }
 
         public static int enet_address_get_host_ip(ref ENetAddress address, out string name)
@@ -184,7 +184,7 @@ namespace ENet.NET
                     return 0;
                 }
             }
-            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound)
+            catch (SocketException e) when (e.SocketErrorCode == SocketError.HostNotFound)
             {
                 return enet_address_get_host_ip(ref address, out name);
             }

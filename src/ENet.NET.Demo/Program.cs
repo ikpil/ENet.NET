@@ -33,10 +33,11 @@ public static class Program
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            print(e.ToString());
             ret = -1;
         }
 
+        Thread.Sleep(100);
         return ret;
     }
 
@@ -59,7 +60,7 @@ public static class Program
 
         /* create a server */
         print($"starting server...");
-        ENetHost server = enet_host_create(ref address, MAX_CLIENTS, 2, 0, 0);
+        ENetHost server = enet_host_create(address, MAX_CLIENTS, 2, 0, 0);
         if (server == null)
         {
             perror($"An error occurred while trying to create an ENet server host.");
@@ -67,12 +68,12 @@ public static class Program
         }
 
         print($"starting clients...");
-        enet_address_set_host(out address, "127.0.0.1");
+        enet_address_set_host(ref address, "127.0.0.1");
+        var dummyAddr = new ENetAddress();
         for (i = 0; i < MAX_CLIENTS; ++i)
         {
-            var empty = new ENetAddress();
-            clients[i].host = enet_host_create(ref empty, 1, 2, 0, 0);
-            clients[i].peer = enet_host_connect(clients[i].host, ref address, 2, 0);
+            clients[i].host = enet_host_create(dummyAddr, 1, 2, 0, 0);
+            clients[i].peer = enet_host_connect(clients[i].host, address, 2, 0);
             if (clients[i].peer == null)
             {
                 perror($"coundlnt connect");
