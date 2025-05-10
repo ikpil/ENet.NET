@@ -21,7 +21,7 @@ namespace ENet.NET
 
         public static bool enet_list_empty<T>(LinkedList<T> list)
         {
-            return enet_list_begin(list) == enet_list_end(list);
+            return 0 >= list.Count;
         }
 
         public static LinkedListNode<T> enet_list_next<T>(LinkedListNode<T> iterator)
@@ -34,31 +34,9 @@ namespace ENet.NET
             return iterator.Previous;
         }
 
-        public static T enet_list_front<T>(LinkedList<T> list)
-        {
-            return list.First.Value;
-        }
-
-        public static T enet_list_back<T>(LinkedList<T> list)
-        {
-            return list.Last.Value;
-        }
-
-
-        public static void enet_list_clear<T>(LinkedList<T> list)
-        {
-            list.Clear();
-        }
-
         public static LinkedListNode<T> enet_list_insert<T>(LinkedListNode<T> position, T data)
         {
             return position.List.AddAfter(position, data);
-        }
-        
-        public static LinkedListNode<T> enet_list_insert<T>(LinkedListNode<T> position, LinkedListNode<T> data)
-        {
-            position.List.AddAfter(position, data);
-            return data;
         }
 
         public static T enet_list_remove<T>(LinkedListNode<T> position)

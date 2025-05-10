@@ -264,7 +264,7 @@ namespace ENet.NET
                     startSequenceNumber = ENET_HOST_TO_NET_16((ushort)(channel.outgoingReliableSequenceNumber + 1));
                 }
 
-                enet_list_clear(fragments);
+                fragments.Clear();
 
                 for (fragmentNumber = 0, fragmentOffset = 0; fragmentOffset < packet.dataLength; ++fragmentNumber, fragmentOffset += fragmentLength)
                 {
@@ -301,7 +301,7 @@ namespace ENet.NET
                     fragment.command.sendFragment.totalLength = ENET_HOST_TO_NET_32((uint)packet.dataLength);
                     fragment.command.sendFragment.fragmentOffset = ENET_NET_TO_HOST_32((ushort)fragmentOffset);
 
-                    enet_list_insert(enet_list_end(fragments), fragment);
+                    fragments.AddLast(fragment);
                 }
 
                 packet.referenceCount += fragmentNumber;
@@ -764,7 +764,7 @@ namespace ENet.NET
             acknowledgement.sentTime = sentTime;
             acknowledgement.command = command;
 
-            enet_list_insert(enet_list_end(peer.acknowledgements), acknowledgement);
+            peer.acknowledgements.AddLast(acknowledgement);
             return acknowledgement;
         }
 
@@ -833,11 +833,11 @@ namespace ENet.NET
 
             if ((outgoingCommand.command.header.command & ENetProtocolFlag.ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE) != 0 && outgoingCommand.packet != null)
             {
-                enet_list_insert(enet_list_end(peer.outgoingSendReliableCommands), outgoingCommand);
+                peer.outgoingSendReliableCommands.AddLast(outgoingCommand);
             }
             else
             {
-                enet_list_insert(enet_list_end(peer.outgoingCommands), outgoingCommand);
+                peer.outgoingCommands.AddLast(outgoingCommand);
             }
         }
 
@@ -893,7 +893,7 @@ namespace ENet.NET
 
                         if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
                         {
-                            enet_list_insert(enet_list_end(peer.host.dispatchQueue), peer.dispatchList);
+                            peer.host.dispatchQueue.AddLast(peer.dispatchList);
                             peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
                         }
 
@@ -927,7 +927,7 @@ namespace ENet.NET
 
                         if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
                         {
-                            enet_list_insert(enet_list_end(peer.host.dispatchQueue), peer.dispatchList);
+                            peer.host.dispatchQueue.AddLast(peer.dispatchList);
                             peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
                         }
                     }
@@ -942,7 +942,7 @@ namespace ENet.NET
 
                 if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
                 {
-                    enet_list_insert(enet_list_end(peer.host.dispatchQueue), peer.dispatchList);
+                    peer.host.dispatchQueue.AddLast(peer.dispatchList);
                     peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
                 }
 
@@ -986,7 +986,7 @@ namespace ENet.NET
 
             if (0 == (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
             {
-                enet_list_insert(enet_list_end(peer.host.dispatchQueue), peer.dispatchList);
+                peer.host.dispatchQueue.AddLast(peer.dispatchList);
                 peer.flags |= (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH;
             }
 
