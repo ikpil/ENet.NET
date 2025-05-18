@@ -17,12 +17,12 @@ namespace ENet.NET
 
         public static bool ENET_TIME_LESS(long a, long b)
         {
-            return ((a) - (b) >= ENET_TIME_OVERFLOW);
+            return ((uint)(a) - (uint)(b) >= ENET_TIME_OVERFLOW);
         }
 
         public static bool ENET_TIME_GREATER(long a, long b)
         {
-            return ((b) - (a) >= ENET_TIME_OVERFLOW);
+            return ((uint)(b) - (uint)(a) >= ENET_TIME_OVERFLOW);
         }
 
         public static bool ENET_TIME_LESS_EQUAL(long a, long b)
@@ -37,7 +37,7 @@ namespace ENet.NET
 
         public static long ENET_TIME_DIFFERENCE(long a, long b)
         {
-            return ((a) - (b) >= ENET_TIME_OVERFLOW ? (b) - (a) : (a) - (b));
+            return ((uint)(a) - (uint)(b) >= ENET_TIME_OVERFLOW ? (uint)(b) - (uint)(a) : (uint)(a) - (uint)(b));
         }
 
         public static long enet_time_get()
