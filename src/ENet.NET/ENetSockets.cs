@@ -351,10 +351,10 @@ namespace ENet.NET
                 {
                     remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
                 }
-
                 //int received = socket.Receive(buffer.data.Slice(0, buffer.dataLength));
                 //int received = socket.ReceiveFrom(buffer.data, SocketFlags.None, ref remoteEP);
                 int received = socket.ReceiveFrom(buffer.data, buffer.offset, buffer.dataLength, SocketFlags.None, ref remoteEP);
+
 
                 if (address.host != null && remoteEP is IPEndPoint ipEndPoint)
                 {

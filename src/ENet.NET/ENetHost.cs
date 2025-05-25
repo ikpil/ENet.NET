@@ -38,9 +38,9 @@ namespace ENet.NET
         public uint totalQueued;
         public int packetSize;
         public ushort headerFlags;
-        public ENetProtocol[] commands = new ENetProtocol[ENets.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
+        public readonly ENetProtocol[] commands = new ENetProtocol[ENets.ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
         public int commandCount;
-        public ENetBuffer[] buffers = new ENetBuffer[ENets.ENET_BUFFER_MAXIMUM];
+        public readonly ENetBuffer[] buffers = new ENetBuffer[ENets.ENET_BUFFER_MAXIMUM];
         public int bufferCount;
         public ENetChecksumCallback checksum; /* callback the user can set to enable packet checksums for this host */
         public ENetCompressor compressor;

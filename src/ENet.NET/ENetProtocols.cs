@@ -1332,7 +1332,7 @@ namespace ENet.NET
                 int commandSize;
 
                 ENetProtocol command = new ENetProtocol();
-                command.MergeForm(currentData);
+                command.CopyFrom(currentData);
 
                 if (currentData.Offset + Marshal.SizeOf<ENetProtocolCommandHeader>() > host.receivedDataLength)
                 {
@@ -1777,8 +1777,8 @@ namespace ENet.NET
                     canPing = 0;
                 }
 
-                ref ENetProtocol command = ref host.commands[host.commandCount];
-                ref ENetBuffer buffer = ref host.buffers[host.bufferCount];
+                ref ENetProtocol command = ref host.commands[ncommand];
+                ref ENetBuffer buffer = ref host.buffers[nbuffer];
 
                 commandSize = commandSizes[outgoingCommand.command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK];
                 if (ncommand >= host.commands.Length ||
@@ -1872,8 +1872,7 @@ namespace ENet.NET
                 }
 
 
-                enet_assert(false);
-                //buffer.data = command;
+                buffer.data = outgoingCommand.command.ToArray(commandSize); // todo : @ikpil check
                 buffer.dataLength = commandSize;
 
                 host.packetSize += buffer.dataLength;
@@ -1882,7 +1881,9 @@ namespace ENet.NET
 
                 if (outgoingCommand.packet != null)
                 {
-                    ++nbuffer;
+                    nbuffer++;
+                    buffer = ref host.buffers[nbuffer];
+
                     enet_assert(false);
                     //buffer.data = new ArraySegment<byte>(outgoingCommand.packet.data, outgoingCommand.fragmentOffset, outgoingCommand.packet.data.Length - outgoingCommand.fragmentOffset);
                     buffer.dataLength = outgoingCommand.fragmentLength;
@@ -2007,9 +2008,7 @@ namespace ENet.NET
                         currentPeer.packetsLost = 0;
                     }
 
-                    // todo : @ikpil check
-                    enet_assert(false);
-                    //host.buffers[0].data = headerData;
+                    host.buffers[0].data = headerData.ToByteArray(); // todo : @ikpil check
                     if (0 != (host.headerFlags & ENetProtocolFlag.ENET_PROTOCOL_HEADER_FLAG_SENT_TIME))
                     {
                         header.sentTime = ENET_HOST_TO_NET_16((ushort)(host.serviceTime & 0xFFFF));

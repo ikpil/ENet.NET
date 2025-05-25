@@ -16,5 +16,12 @@ namespace ENet.NET
             
         [FieldOffset(5)]
         public uint b;
+
+        public byte[] ToByteArray()
+        {
+            var dummy = new byte[9];
+            bytes.AsSpan().CopyTo(dummy);
+            return dummy;
+        }
     }
 }
