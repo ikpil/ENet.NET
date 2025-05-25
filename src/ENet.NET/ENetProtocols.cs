@@ -70,7 +70,7 @@ namespace ENet.NET
         {
             while (!host.dispatchQueue.IsEmpty())
             {
-                ENetPeer peer = host.dispatchQueue.First.RemoveAndGet();
+                ENetPeer peer = host.dispatchQueue.First.Unlink().Value;
                 peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
 
                 switch (peer.state)
@@ -210,7 +210,7 @@ namespace ENet.NET
             do
             {
                 ENetOutgoingCommand outgoingCommand = sentUnreliableCommands.First.Value;
-                outgoingCommand.outgoingCommandList.RemoveAndGet();
+                outgoingCommand.outgoingCommandList.Unlink();
 
                 if (outgoingCommand.packet != null)
                 {
@@ -310,7 +310,7 @@ namespace ENet.NET
             }
 
             commandNumber = (byte)(outgoingCommand.command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK);
-            outgoingCommand.outgoingCommandList.RemoveAndGet();
+            outgoingCommand.outgoingCommandList.Unlink();
 
             if (outgoingCommand.packet != null)
             {
@@ -1627,7 +1627,7 @@ namespace ENet.NET
                     enet_protocol_dispatch_state(host, peer, ENetPeerState.ENET_PEER_STATE_ZOMBIE);
                 }
 
-                acknowledgement.acknowledgementList.RemoveAndGet();
+                acknowledgement.acknowledgementList.Unlink();
                 enet_free(acknowledgement);
 
                 ++ncommand;
@@ -1683,11 +1683,11 @@ namespace ENet.NET
                 if (outgoingCommand.packet != null)
                 {
                     peer.reliableDataInTransit -= outgoingCommand.fragmentLength;
-                    insertSendReliablePosition.AddAfter(outgoingCommand.outgoingCommandList.RemoveAndGet());
+                    insertSendReliablePosition.AddAfter(outgoingCommand.outgoingCommandList.Unlink());
                 }
                 else
                 {
-                    insertPosition.AddAfter(outgoingCommand.outgoingCommandList.RemoveAndGet());
+                    insertPosition.AddAfter(outgoingCommand.outgoingCommandList.Unlink());
                 }
 
                 if (currentCommand == peer.sentReliableCommands.First && !peer.sentReliableCommands.IsEmpty())
@@ -1814,7 +1814,7 @@ namespace ENet.NET
                         peer.nextTimeout = host.serviceTime + outgoingCommand.roundTripTimeout;
                     }
 
-                    peer.sentReliableCommands.AddLast(outgoingCommand.outgoingCommandList.RemoveAndGet());
+                    peer.sentReliableCommands.AddLast(outgoingCommand.outgoingCommandList.Unlink());
 
                     outgoingCommand.sentTime = host.serviceTime;
 
@@ -1841,7 +1841,7 @@ namespace ENet.NET
                                     enet_packet_destroy(outgoingCommand.packet);
                                 }
 
-                                outgoingCommand.outgoingCommandList.RemoveAndGet();
+                                outgoingCommand.outgoingCommandList.Unlink();
                                 enet_free(outgoingCommand);
 
                                 if (currentCommand == null)
@@ -1863,7 +1863,7 @@ namespace ENet.NET
                         }
                     }
 
-                    outgoingCommand.outgoingCommandList.RemoveAndGet();
+                    outgoingCommand.outgoingCommandList.Unlink();
 
                     if (outgoingCommand.packet != null)
                     {

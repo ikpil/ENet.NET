@@ -13,16 +13,18 @@ namespace ENet.NET
         {
             return 0 >= list.Count;
         }
-        
-        public static T RemoveAndGet<T>(this LinkedListNode<T> position)
+
+        public static LinkedListNode<T> Unlink<T>(this LinkedListNode<T> position)
         {
-            position.List.Remove(position);
-            return position.Value;
+            if (null != position.List)
+                position.List.Remove(position);
+
+            return position;
         }
 
-        public static LinkedListNode<T> AddAfter<T>(this LinkedListNode<T> position, T data)
+        public static void AddAfter<T>(this LinkedListNode<T> position, LinkedListNode<T> data)
         {
-            return position.List.AddAfter(position, data);
+            position.List.AddAfter(position, data);
         }
 
         public static LinkedListNode<T> MoveBefore<T>(this LinkedListNode<T> position, LinkedListNode<T> first, LinkedListNode<T> last)
@@ -37,7 +39,7 @@ namespace ENet.NET
 
                 if (current == last)
                     break;
-                
+
                 current = next;
             }
 

@@ -4,7 +4,7 @@ namespace ENet.NET
 {
     public class ENetIncomingCommand
     {
-        public LinkedListNode<ENetIncomingCommand> incomingCommandList;
+        public readonly LinkedListNode<ENetIncomingCommand> incomingCommandList;
         public ushort reliableSequenceNumber;
         public ushort unreliableSequenceNumber;
         public ENetProtocol command;
@@ -12,5 +12,10 @@ namespace ENet.NET
         public long fragmentsRemaining;
         public uint[] fragments;
         public ENetPacket packet;
+
+        public ENetIncomingCommand()
+        {
+            incomingCommandList = new LinkedListNode<ENetIncomingCommand>(this);
+        }
     }
 }

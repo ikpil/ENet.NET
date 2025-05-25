@@ -9,7 +9,7 @@ namespace ENet.NET
      */
     public class ENetPeer
     {
-        public LinkedListNode<ENetPeer> dispatchList;
+        public readonly LinkedListNode<ENetPeer> dispatchList;
 
         public ENetHost host;
         public ushort outgoingPeerID;
@@ -76,6 +76,11 @@ namespace ENet.NET
         public uint[] unsequencedWindow = new uint[ENets.ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32];
         public uint eventData;
         public long totalWaitingData;
+
+        public ENetPeer()
+        {
+            dispatchList = new LinkedListNode<ENetPeer>(this);
+        }
 
         public void clear()
         {

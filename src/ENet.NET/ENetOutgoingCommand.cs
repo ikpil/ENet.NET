@@ -4,7 +4,7 @@ namespace ENet.NET
 {
     public class ENetOutgoingCommand
     {
-        public LinkedListNode<ENetOutgoingCommand> outgoingCommandList;
+        public readonly LinkedListNode<ENetOutgoingCommand> outgoingCommandList;
         public ushort reliableSequenceNumber;
         public ushort unreliableSequenceNumber;
         public long sentTime;
@@ -15,5 +15,10 @@ namespace ENet.NET
         public ushort sendAttempts;
         public ENetProtocol command;
         public ENetPacket packet;
+
+        public ENetOutgoingCommand()
+        {
+            outgoingCommandList = new LinkedListNode<ENetOutgoingCommand>(this);
+        }
     }
 }

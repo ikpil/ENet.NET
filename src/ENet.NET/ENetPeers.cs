@@ -279,7 +279,7 @@ namespace ENet.NET
                     {
                         while (!fragments.IsEmpty())
                         {
-                            fragment = fragments.First.RemoveAndGet();
+                            fragment = fragments.First.Unlink().Value;
 
                             enet_free(fragment);
                         }
@@ -308,7 +308,7 @@ namespace ENet.NET
 
                 while (!fragments.IsEmpty())
                 {
-                    fragment = fragments.First.RemoveAndGet();
+                    fragment = fragments.First.Unlink().Value;
                     enet_peer_setup_outgoing_command(peer, fragment);
                 }
 
@@ -357,7 +357,7 @@ namespace ENet.NET
                 return null;
             }
 
-            incomingCommand = peer.dispatchedCommands.First.RemoveAndGet();
+            incomingCommand = peer.dispatchedCommands.First.Unlink().Value;
 
             //if (channelID != null) {
             channelID = incomingCommand.command.header.channelID;
@@ -383,7 +383,7 @@ namespace ENet.NET
 
             while (!queue.IsEmpty())
             {
-                outgoingCommand = queue.First.RemoveAndGet();
+                outgoingCommand = queue.First.Unlink().Value;
 
                 if (outgoingCommand.packet != null)
                 {
@@ -414,7 +414,7 @@ namespace ENet.NET
                 if (incomingCommand == excludeCommand)
                     continue;
 
-                incomingCommand.incomingCommandList.RemoveAndGet();
+                incomingCommand.incomingCommandList.Unlink();
 
                 if (incomingCommand.packet != null)
                 {
@@ -446,13 +446,13 @@ namespace ENet.NET
         {
             if (0 != (peer.flags & (ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH))
             {
-                peer.dispatchList.RemoveAndGet();
+                peer.dispatchList.Unlink();
                 peer.flags = (ushort)(peer.flags & ~(ushort)ENetPeerFlag.ENET_PEER_FLAG_NEEDS_DISPATCH);
             }
 
             while (!peer.acknowledgements.IsEmpty())
             {
-                enet_free(peer.acknowledgements.First.RemoveAndGet());
+                enet_free(peer.acknowledgements.First.Unlink());
             }
 
             enet_peer_reset_outgoing_commands(peer, peer.sentReliableCommands);
@@ -996,6 +996,7 @@ namespace ENet.NET
             }
         }
 
+        // todo : @ikpil check
         private static ENetIncomingCommand dummyCommand;
 
         public static ENetIncomingCommand enet_peer_queue_incoming_command(ENetPeer peer, ref ENetProtocol command, ArraySegment<byte> data, int dataLength, uint flags, int fragmentCount)
@@ -1180,7 +1181,7 @@ namespace ENet.NET
             ++packet.referenceCount;
             peer.totalWaitingData += packet.dataLength;
 
-            currentCommand.Next.AddAfter(incomingCommand);
+            currentCommand.Next.AddAfter(incomingCommand.incomingCommandList.Unlink());
 
             switch (command.header.command & ENetProtocolCommand.ENET_PROTOCOL_COMMAND_MASK)
             {
