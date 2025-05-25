@@ -5,8 +5,6 @@ using static ENet.NET.ENetVersions;
 
 namespace ENet.NET
 {
-
-
     public static class ENets
     {
         public const int ENET_BUFFER_MAXIMUM = (1 + 2 * ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS);

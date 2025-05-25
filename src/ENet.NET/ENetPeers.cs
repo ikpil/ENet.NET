@@ -868,7 +868,7 @@ namespace ENet.NET
             LinkedListNode<ENetIncomingCommand> droppedCommand, startCommand, currentCommand = null;
 
             for (droppedCommand = startCommand = currentCommand = channel.incomingUnreliableCommands.First;
-                 currentCommand != channel.incomingUnreliableCommands.Last;
+                 currentCommand != null;
                  currentCommand = currentCommand.Next
                 )
             {
@@ -957,7 +957,7 @@ namespace ENet.NET
             LinkedListNode<ENetIncomingCommand> currentCommand;
 
             for (currentCommand = channel.incomingReliableCommands.First;
-                 currentCommand != channel.incomingReliableCommands.Last;
+                 currentCommand != null;
                  currentCommand = currentCommand.Next
                 )
             {
@@ -1038,8 +1038,8 @@ namespace ENet.NET
                         goto discardCommand;
                     }
 
-                    for (currentCommand = channel.incomingReliableCommands.Last.Previous;
-                         currentCommand != channel.incomingReliableCommands.Last;
+                    for (currentCommand = channel.incomingReliableCommands.Last;
+                         currentCommand != null;
                          currentCommand = currentCommand.Previous
                         )
                     {
@@ -1079,8 +1079,8 @@ namespace ENet.NET
                         goto discardCommand;
                     }
 
-                    for (currentCommand = channel.incomingUnreliableCommands.Last.Previous;
-                         currentCommand != channel.incomingUnreliableCommands.Last;
+                    for (currentCommand = channel.incomingUnreliableCommands.Last;
+                         currentCommand != null;
                          currentCommand = currentCommand.Previous
                         )
                     {
@@ -1127,7 +1127,7 @@ namespace ENet.NET
                     break;
 
                 case ENetProtocolCommand.ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED:
-                    currentCommand = channel.incomingUnreliableCommands.Last;
+                    currentCommand = null;
                     break;
 
                 default:

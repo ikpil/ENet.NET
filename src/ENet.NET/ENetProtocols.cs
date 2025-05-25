@@ -237,7 +237,7 @@ namespace ENet.NET
             LinkedListNode<ENetOutgoingCommand> currentCommand;
 
             for (currentCommand = list.First;
-                 currentCommand != list.Last;
+                 currentCommand != null;
                  currentCommand = currentCommand.Next)
             {
                 ENetOutgoingCommand outgoingCommand = currentCommand.Value;
@@ -269,7 +269,7 @@ namespace ENet.NET
             int wasSent = 1;
 
             for (currentCommand = peer.sentReliableCommands.First;
-                 currentCommand != peer.sentReliableCommands.Last;
+                 currentCommand != null;
                  currentCommand = currentCommand.Next)
             {
                 outgoingCommand = currentCommand.Value;
@@ -279,7 +279,7 @@ namespace ENet.NET
                 }
             }
 
-            if (currentCommand == peer.sentReliableCommands.Last)
+            if (currentCommand == null)
             {
                 outgoingCommand = enet_protocol_find_sent_reliable_command(peer.outgoingCommands, reliableSequenceNumber, channelID);
                 if (outgoingCommand == null)
@@ -678,8 +678,8 @@ namespace ENet.NET
                 return -1;
             }
 
-            for (currentCommand = channel.incomingReliableCommands.Last.Previous;
-                 currentCommand != channel.incomingReliableCommands.Last;
+            for (currentCommand = channel.incomingReliableCommands.Last;
+                 currentCommand != null;
                  currentCommand = currentCommand.Previous
                 )
             {
@@ -814,8 +814,8 @@ namespace ENet.NET
                 return -1;
             }
 
-            for (currentCommand = channel.incomingUnreliableCommands.Last.Previous;
-                 currentCommand != channel.incomingUnreliableCommands.Last;
+            for (currentCommand = channel.incomingUnreliableCommands.Last;
+                 currentCommand != null;
                  currentCommand = currentCommand.Previous
                 )
             {
@@ -1591,7 +1591,7 @@ namespace ENet.NET
 
             currentAcknowledgement = peer.acknowledgements.First;
 
-            while (currentAcknowledgement != peer.acknowledgements.Last)
+            while (currentAcknowledgement != null)
             {
                 ref ENetProtocol command = ref host.commands[ncommand];
                 ref ENetBuffer buffer = ref host.buffers[nbuffer];
@@ -1647,7 +1647,7 @@ namespace ENet.NET
             insertPosition = peer.outgoingCommands.First;
             insertSendReliablePosition = peer.outgoingSendReliableCommands.First;
 
-            while (currentCommand != peer.sentReliableCommands.Last)
+            while (currentCommand != null)
             {
                 outgoingCommand = currentCommand.Value;
 
@@ -1717,10 +1717,10 @@ namespace ENet.NET
 
             for (;;)
             {
-                if (currentCommand != peer.outgoingCommands.Last)
+                if (currentCommand != null)
                 {
                     outgoingCommand = currentCommand.Value;
-                    if (currentSendReliableCommand != peer.outgoingSendReliableCommands.Last && ENET_TIME_LESS(currentSendReliableCommand.Value.queueTime, outgoingCommand.queueTime))
+                    if (currentSendReliableCommand != null && ENET_TIME_LESS(currentSendReliableCommand.Value.queueTime, outgoingCommand.queueTime))
                     {
                         // todo : @ikpil check
                         enet_assert(false);
@@ -1729,7 +1729,7 @@ namespace ENet.NET
 
                     currentCommand = currentCommand.Next;
                 }
-                else if (currentSendReliableCommand != peer.outgoingSendReliableCommands.Last)
+                else if (currentSendReliableCommand != null)
                 {
                     useSendReliableCommand:
                     outgoingCommand = currentSendReliableCommand.Value;
@@ -1758,7 +1758,7 @@ namespace ENet.NET
                                         (((1u << (ENET_PEER_FREE_RELIABLE_WINDOWS + 2)) - 1) >> (ENET_PEER_RELIABLE_WINDOWS - reliableWindow)))))
                         {
                             windowWrap = 1;
-                            currentSendReliableCommand = peer.outgoingSendReliableCommands.Last;
+                            currentSendReliableCommand = null;
                             continue;
                         }
                     }
@@ -1769,7 +1769,7 @@ namespace ENet.NET
 
                         if (peer.reliableDataInTransit + outgoingCommand.fragmentLength > Math.Max(windowSize, peer.mtu))
                         {
-                            currentSendReliableCommand = peer.outgoingSendReliableCommands.Last;
+                            currentSendReliableCommand = null;
                             continue;
                         }
                     }
@@ -1844,7 +1844,7 @@ namespace ENet.NET
                                 outgoingCommand.outgoingCommandList.RemoveAndGet();
                                 enet_free(outgoingCommand);
 
-                                if (currentCommand == peer.outgoingCommands.Last)
+                                if (currentCommand == null)
                                 {
                                     break;
                                 }
