@@ -1,4 +1,6 @@
-﻿namespace ENet.NET
+﻿using static ENet.NET.ENetDelegates;
+
+namespace ENet.NET
 {
     /** An ENet packet compressor for compressing UDP packets before socket sends or receives. */
     public struct ENetCompressor

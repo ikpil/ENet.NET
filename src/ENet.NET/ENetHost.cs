@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Net.Sockets;
+using static ENet.NET.ENetDelegates;
 
 namespace ENet.NET
 {

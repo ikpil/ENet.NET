@@ -1,7 +1,7 @@
-﻿namespace ENet.NET
-{
+﻿using static ENet.NET.ENetDelegates;
 
-    
+namespace ENet.NET
+{
     public class ENetCallbacks
     {
         public IENetAllocator allocator;

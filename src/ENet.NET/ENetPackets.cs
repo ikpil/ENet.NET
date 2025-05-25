@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices;
 using static ENet.NET.ENets;
 
 namespace ENet.NET

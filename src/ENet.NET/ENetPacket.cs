@@ -1,6 +1,5 @@
 ﻿using System;
-using static ENet.NET.ENets;
-using System.Diagnostics;
+using static ENet.NET.ENetDelegates;
 
 namespace ENet.NET
 {

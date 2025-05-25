@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Net;
-using System.Runtime.InteropServices;
 using static ENet.NET.ENets;
 using static ENet.NET.ENetSockets;
 using static ENet.NET.ENetTimes;
 using static ENet.NET.ENetProtocols;
 using static ENet.NET.ENetPeers;
-using static ENet.NET.ENetLists;
 using static ENet.NET.ENetAddresses;
+using static ENet.NET.ENetDelegates;
+
 
 namespace ENet.NET
 {

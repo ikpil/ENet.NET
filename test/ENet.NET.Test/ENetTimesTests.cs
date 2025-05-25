@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using NUnit.Framework;
 using static ENet.NET.ENetTimes;

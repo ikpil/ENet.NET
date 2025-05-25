@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using static ENet.NET.ENets;
-using static ENet.NET.ENetLists;
 using static ENet.NET.ENetAddresses;
 using static ENet.NET.ENetHosts;
 using static ENet.NET.ENetProtocols;
+using static ENet.NET.ENetDelegates;
+
 
 namespace ENet.NET
 {
