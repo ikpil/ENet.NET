@@ -2049,11 +2049,10 @@ namespace ENet.NET
                             header.peerID = ENET_HOST_TO_NET_16((ushort)(basePeerID | flagsAndSession));
                             {
                                 // todo : @ikpil check
-                                enet_assert(false);
-                                // byte overflowByte = (byte)((currentPeer.outgoingPeerID >> 11) & 0xFF);
-                                // byte *extraPeerIDByte   = &headerData[host.buffers[0].dataLength];
-                                // *extraPeerIDByte             = overflowByte;
-                                // host.buffers[0].dataLength += Marshal.SizeOf<byte>();
+                                byte overflowByte = (byte)((currentPeer.outgoingPeerID >> 11) & 0xFF);
+                                ref byte extraPeerIDByte = ref headerData.bytes.AsSpan()[host.buffers[0].dataLength];
+                                extraPeerIDByte = overflowByte;
+                                host.buffers[0].dataLength += Marshal.SizeOf<byte>();
                             }
                         }
                         else
