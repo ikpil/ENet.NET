@@ -326,7 +326,14 @@ namespace ENet.NET
                 if (bufferList.Count == 0)
                     return 0;
 
-                int sent = socket.Send(bufferList);
+                // todo @ikpil test code
+                int sent = 0;
+                var endpoint = new IPEndPoint(address.host, address.port);
+                for (int i = 0; i < bufferList.Count; i++)
+                {
+                    var buffer = bufferList[i];
+                    sent += socket.SendTo(buffer.Array, buffer.Offset, buffer.Count, SocketFlags.None, endpoint);
+                }
                 return sent;
             }
             catch (SocketException e)
